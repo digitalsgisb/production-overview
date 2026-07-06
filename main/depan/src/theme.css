@@ -1,0 +1,67 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+
+/* ============================================================
+   DESIGN TOKENS — Production Floor Control Theme
+   Inspired by control-room / SCADA status panels: dark slate
+   surfaces, status-light color coding (the colors map to real
+   machine states: running / idle / offline / down), monospace
+   for telemetry-style data (IDs, counters, timestamps).
+   ============================================================ */
+
+:root {
+  /* Surfaces */
+  --bg: #14181d;
+  --panel: #1e242b;
+  --panel-raised: #262d35;
+  --panel-hover: #2c343d;
+  --border: #323a44;
+  --border-soft: #2a313a;
+
+  /* Text */
+  --text: #e7eaee;
+  --text-muted: #8b95a1;
+  --text-faint: #5d6672;
+
+  /* Accent */
+  --accent: #4f8edb;
+  --accent-dim: #3a6aa6;
+  --accent-soft: rgba(79, 142, 219, 0.12);
+
+  /* Status lights — these correspond to real line states */
+  --status-run: #43b97f;
+  --status-run-soft: rgba(67, 185, 127, 0.14);
+  --status-idle: #e0a23c;
+  --status-idle-soft: rgba(224, 162, 60, 0.14);
+  --status-offline: #6b7280;
+  --status-offline-soft: rgba(107, 114, 128, 0.14);
+  --status-down: #e25656;
+  --status-down-soft: rgba(226, 86, 86, 0.14);
+
+  /* Type */
+  --font-display: "Space Grotesk", "Segoe UI", sans-serif;
+  --font-body: "Inter", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", "SF Mono", Consolas, monospace;
+
+  /* Radius — sharp, panel-like, not soft/consumer */
+  --radius-sm: 3px;
+  --radius-md: 5px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

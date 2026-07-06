@@ -1,0 +1,209 @@
+﻿@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Raleway:ital,wght@0,100..900;1,100..900&family=Stack+Sans+Headline:wght@200..700&display=swap");
+
+:root {
+  --bg-shell: #0d1117;
+  --card-bg: #161b22;
+  --card-border: #262e38;
+  --text-primary: #e6edf3;
+  --text-secondary: #7d8590;
+  --accent-1: #6c63ff;
+  --accent-2: #3ecfcf;
+  --danger: #f87171;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-shell);
+  color: var(--text-primary);
+  font-family: "Inter", sans-serif;
+  font-variant-numeric: normal;
+  font-feature-settings: "zero" 0;
+}
+
+.login-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg-shell);
+  background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.035) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 390px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-top: 3px solid var(--accent-2);
+  padding: 32px 28px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+}
+
+.login-logo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 30px;
+}
+
+.login-logo__mark {
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+  color: #fff;
+  font-family: "Stack Sans Headline", "Raleway", sans-serif;
+  font-weight: 700;
+  font-size: 21px;
+}
+
+.login-logo__eyebrow {
+  margin: 0 0 4px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.login-logo__text {
+  font-family: "Stack Sans Headline", "Raleway", "Inter", sans-serif;
+  font-size: 25px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.login-logo__text span {
+  color: var(--accent-2);
+  font-weight: 500;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.brand-logo-login {
+  width: clamp(200px, 20vw, 460px);
+  height: 140px;
+  object-fit: contain;
+  object-position: center;
+  display: block;
+  margin-right: 20px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-field__label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.form-field__input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.form-field__input {
+  width: 100%;
+  background: #0f141b;
+  border: 1px solid var(--card-border);
+  border-radius: 0;
+  color: var(--text-primary);
+  font-size: 14px;
+  padding: 12px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-field__input::placeholder {
+  color: #565b68;
+}
+
+.form-field__input:focus {
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 3px rgba(62, 207, 207, 0.14);
+}
+
+.form-field__input-wrap .form-field__input {
+  padding-right: 42px;
+}
+
+.form-field__toggle {
+  position: absolute;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.form-field__toggle svg {
+  width: 17px;
+  height: 17px;
+}
+
+.form-field__toggle:hover {
+  color: var(--text-primary);
+}
+
+.login-form__error {
+  margin: -6px 0 0;
+  font-size: 12px;
+  color: var(--danger);
+}
+
+.submit-btn {
+  margin-top: 6px;
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 0;
+  background:darkcyan;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.05s ease;
+}
+
+.submit-btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.submit-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.submit-btn:disabled {
+  cursor: wait;
+  opacity: 0.75;
+}
+
+.submit-btn:focus-visible,
+.form-field__toggle:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+}
