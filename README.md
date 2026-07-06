@@ -6,4 +6,8 @@
 
 -how it works pt2 :
 -when node js send data to react js, it saves the data into existing object, every production line that is visible in react is based on the existing object,
--to add or remove object/production lines, just refer to file /pages/dashboard.jsx
+-to add or remove object/production lines, just refer to file depan/src/pages/dashboard.jsx, the line PORT KLANG LINES AND SENDAYAN LINES are the objects,
+-just add new or remove it, exp: ["ABB4", "ABB7", "ABB2","NEWLINE"]; - every row would have 4 line max  per row in the website display
+
+-for database access:
+-refer .env in control center vscode
