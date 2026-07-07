@@ -39,26 +39,33 @@
     const target = toNumber(getLineValue(line, ["target", "hourly_plan"], 0));
     const reject = toNumber(getLineValue(line, ["product_reject", "reject"], 0));
     const oee = toNumber(getLineValue(line, ["oee"], 0));
+    const model = getLineValue(line, ["model"], "No model");
+    const availability = toNumber(getLineValue(line, ["availability_pct", "availability_pctm"], 0));
+    const performance = toNumber(getLineValue(line, ["performance_pct"], 0));
+    const quality = toNumber(getLineValue(line, ["quality_pct"], 0));
     const progress = target > 0 ? Math.min(100, Math.round((count / target) * 100)) : 0;
     const cfg = getStatusConfig(status);
+    const ringValue = Math.max(0, Math.min(100, oee)) * 3.6;
 
     return (
       <button
         className="line-card"
         type="button"
-        style={{ "--status-color": cfg.bg }}
+        style={{ "--status-color": cfg.bg, "--status-fg": cfg.fg, "--oee-angle": `${ringValue}deg` }}
         onClick={onClick}
         aria-label={`Open ${line?.line_id ?? lineId} details`}
       >
+        <span className="line-card__shine" aria-hidden="true"></span>
         <div className="line-card__body">
           <div className="line-card__top">
             <div>
               <span className="line-id-label">Line</span>
               <span className="line-id-value">{line?.line_id ?? lineId}</span>
+              <span className="line-model">{model}</span>
             </div>
-            <div className="oee">
-              <span className="oee-label">OEE</span>
+            <div className="oee-ring" aria-label={`OEE ${oee}%`}>
               <span className="oee-value">{oee}%</span>
+              <span className="oee-label">OEE</span>
             </div>
           </div>
 
@@ -78,6 +85,21 @@
             </div>
             <div className="progress-track">
               <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+            </div>
+          </div>
+
+          <div className="metric-strip" aria-label="OEE components">
+            <div>
+              <span>A</span>
+              <strong>{availability}%</strong>
+            </div>
+            <div>
+              <span>P</span>
+              <strong>{performance}%</strong>
+            </div>
+            <div>
+              <span>Q</span>
+              <strong>{quality}%</strong>
             </div>
           </div>
 

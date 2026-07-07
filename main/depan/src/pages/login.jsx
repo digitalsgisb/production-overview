@@ -1,7 +1,9 @@
 ﻿import { useState } from "react";
 import "./login.css";
 
-const LOGIN_URL = "https://production-api.sugidigital.org/login";
+const DEFAULT_API_URL = `${window.location.protocol}//${window.location.hostname}:3200`;
+const API_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL;
+const LOGIN_URL = `${API_URL}/login`;
 
 function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState("");

@@ -11,3 +11,6 @@
 
 -for database access:
 -refer .env in control center vscode
+
+-for raspberry pi / port setup / nodered notes:
+-refer DEPLOYMENT.md

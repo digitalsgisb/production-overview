@@ -3,23 +3,46 @@ import { io } from "socket.io-client";
 import LineCard from "./linecard.jsx";
 import "./dashboard.css";
 
-const SOCKET_URL = "https://production-api.sugidigital.org";
+const DEFAULT_API_URL = `${window.location.protocol}//${window.location.hostname}:3200`;
+const SOCKET_URL =
+  import.meta.env.VITE_SOCKET_URL ||
+  import.meta.env.VITE_API_URL ||
+  DEFAULT_API_URL;
 
 const PORT_KLANG_LINES = ["ABB4", "ABB7", "ABB2"];
 const SENDAYAN_LINES = ["SDY1", "SDY2"];
 const ALL_LINE_IDS = [...PORT_KLANG_LINES, ...SENDAYAN_LINES];
+const LINE_DOCUMENTATION_URLS = {
+  ABB4: "https://abb4grafana.sugidigital.org/d/fe9tzft54x1xcf/abb4-smart-dashboard?orgId=1&from=now-5m&to=now&timezone=browser&refresh=5s",
+  ABB7: "https://abb7grafana.sugidigital.org/",
+  ABB2: "https://abb2pkgrafana.sugidigital.org/d/adfnddq/abb2-smart-dashboard?orgId=1&from=now-5m&to=now&timezone=browser&refresh=5s",
+  SDY1: "https://l1sdygrafana.sugidigital.org/d/adqr5dg/line-1-smart-dashboard?orgId=1&from=now-5m&to=now&timezone=browser&refresh=5s",
+  SDY2: "https://l2sdygrafana.sugidigital.org/d/ad6zlmx/line-2-smart-dashboard?orgId=1&from=now-5m&to=now&timezone=browser&refresh=5s",
+};
 
-function Sidebar({ activePage, onSelectPage, onMenu, onLogout }) {
+function Sidebar({ activePage, onSelectPage, onMenu, onLogout, isMobileNavOpen, onCloseMobileNav }) {
+  function handleSelectPage(page) {
+    onSelectPage(page);
+    onCloseMobileNav();
+  }
+
   return (
-    <aside className="sidebar" aria-label="Main navigation">
+    <aside className={`sidebar ${isMobileNavOpen ? "is-mobile-open" : ""}`} aria-label="Main navigation">
       <div className="sidebar__group sidebar__group--top">
-        <button className="icon-btn icon-btn--menu" type="button" aria-label="Menu" onClick={onMenu}>
+        <button
+          className="icon-btn icon-btn--menu"
+          type="button"
+          aria-label="Menu"
+          aria-expanded={isMobileNavOpen}
+          onClick={onMenu}
+        >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="3" y1="6" x2="21" y2="6"></line>
             <line x1="3" y1="12" x2="21" y2="12"></line>
             <line x1="3" y1="18" x2="21" y2="18"></line>
           </svg>
         </button>
+        <span className="sidebar-mobile-title">Navigation</span>
       </div>
 
       <nav className="sidebar__group sidebar__group--middle" aria-label="Primary">
@@ -28,7 +51,7 @@ function Sidebar({ activePage, onSelectPage, onMenu, onLogout }) {
           type="button"
           aria-label="Progress"
           aria-pressed={activePage === "progress"}
-          onClick={() => onSelectPage("progress")}
+          onClick={() => handleSelectPage("progress")}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 3v18h18"></path>
@@ -42,7 +65,7 @@ function Sidebar({ activePage, onSelectPage, onMenu, onLogout }) {
           type="button"
           aria-label="Attendance"
           aria-pressed={activePage === "attendance"}
-          onClick={() => onSelectPage("attendance")}
+          onClick={() => handleSelectPage("attendance")}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="4" width="18" height="18" rx="2"></rect>
@@ -59,7 +82,7 @@ function Sidebar({ activePage, onSelectPage, onMenu, onLogout }) {
           type="button"
           aria-label="History"
           aria-pressed={activePage === "history"}
-          onClick={() => onSelectPage("history")}
+          onClick={() => handleSelectPage("history")}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 12a9 9 0 1 0 3-6.7"></path>
@@ -71,6 +94,10 @@ function Sidebar({ activePage, onSelectPage, onMenu, onLogout }) {
       </nav>
 
       <div className="sidebar__group sidebar__group--bottom">
+        <div className="sidebar-dtu" aria-label="Digital Transformation Unit" title="Digital Transformation Unit">
+          <span>DTU</span>
+          <span className="sidebar-dtu__tip">Digital Transformation Unit</span>
+        </div>
         <button className="icon-btn icon-btn--logout" type="button" aria-label="Log out" onClick={onLogout}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
@@ -246,6 +273,7 @@ function LineDetailModal({ lineId, line, onClose }) {
   const progress = target > 0 ? Math.min(100, Math.round((count / target) * 100)) : 0;
   const cfg = getStatusConfig(status);
   const operators = line?.operators ?? {};
+  const documentationUrl = LINE_DOCUMENTATION_URLS[lineId];
 
   return (
     <div className="line-modal-overlay is-open" role="presentation" onMouseDown={onClose}>
@@ -352,7 +380,13 @@ function LineDetailModal({ lineId, line, onClose }) {
           </div>
 
           <div className="modal-link-row">
-            <a href="#" onClick={(event) => event.preventDefault()}>
+            <a
+              className={!documentationUrl ? "is-disabled" : ""}
+              href={documentationUrl || "#"}
+              target={documentationUrl ? "_blank" : undefined}
+              rel={documentationUrl ? "noreferrer" : undefined}
+              onClick={!documentationUrl ? (event) => event.preventDefault() : undefined}
+            >
               Line Documentation
             </a>
           </div>
@@ -472,9 +506,31 @@ function createFallbackLine(lineId) {
 }
 
 function ProductionSection({ title, lineIds, lines, onSelectLine }) {
+  const sectionLines = lineIds.map((lineId) => lines[lineId] ?? createFallbackLine(lineId));
+  const runningCount = sectionLines.filter((line) => {
+    const status = String(getLineValue(line, ["status", "mode", "machine_mode"], "offline"))
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, "_");
+    return status === "normal" || status === "running";
+  }).length;
+  const actual = sectionLines.reduce((sum, line) => sum + getNumber(getLineMetric(line, ["product_count", "count"])), 0);
+  const target = sectionLines.reduce((sum, line) => sum + getNumber(getLineMetric(line, ["target", "hourly_plan"])), 0);
+  const sectionProgress = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 0;
+
   return (
     <section className="plant-section">
-      <h2 className="plant-title">{title}</h2>
+      <div className="plant-heading">
+        <div>
+          <p className="plant-eyebrow">{lineIds.length} production lines</p>
+          <h2 className="plant-title">{title}</h2>
+        </div>
+        <div className="plant-metrics" aria-label={`${title} summary`}>
+          <span>{runningCount} running</span>
+          <span>{actual.toLocaleString()} / {target.toLocaleString()}</span>
+          <span>{sectionProgress}%</span>
+        </div>
+      </div>
       <div className="line-grid">
         {lineIds.map((lineId) => (
           <LineCard
@@ -486,6 +542,16 @@ function ProductionSection({ title, lineIds, lines, onSelectLine }) {
         ))}
       </div>
     </section>
+  );
+}
+
+function SummaryCard({ label, value, detail, tone = "neutral" }) {
+  return (
+    <article className={`summary-card summary-card--${tone}`}>
+      <span className="summary-card__label">{label}</span>
+      <strong className="summary-card__value">{value}</strong>
+      <span className="summary-card__detail">{detail}</span>
+    </article>
   );
 }
 
@@ -503,6 +569,7 @@ function Dashboard({ user, onLogout }) {
   const [socketState, setSocketState] = useState("connecting");
   const [activePage, setActivePage] = useState("progress");
   const [profileOpen, setProfileOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [selectedLineId, setSelectedLineId] = useState(null);
 
   const seededLines = useMemo(() => {
@@ -529,6 +596,19 @@ function Dashboard({ user, onLogout }) {
       buildSite("klang", "Port Klang", PORT_KLANG_LINES),
       buildSite("sendayan", "Sendayan", SENDAYAN_LINES),
     ];
+  }, [seededLines]);
+
+  const totalSummary = useMemo(() => {
+    const allLines = ALL_LINE_IDS.map((lineId) => seededLines[lineId] ?? createFallbackLine(lineId));
+    const actual = allLines.reduce((sum, line) => sum + getNumber(getLineMetric(line, ["product_count", "count"])), 0);
+    const target = allLines.reduce((sum, line) => sum + getNumber(getLineMetric(line, ["target", "hourly_plan"])), 0);
+    const rejects = allLines.reduce((sum, line) => sum + getNumber(getLineMetric(line, ["product_reject", "reject"])), 0);
+    const oee = allLines.length > 0
+      ? Math.round(allLines.reduce((sum, line) => sum + getLineOee(line), 0) / allLines.length)
+      : 0;
+    const progress = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 0;
+
+    return { actual, target, rejects, oee, progress, lineCount: allLines.length };
   }, [seededLines]);
 
   useEffect(() => {
@@ -568,11 +648,18 @@ function Dashboard({ user, onLogout }) {
   }, []);
 
   function handleMenu() {
+    if (window.matchMedia("(max-width: 767px)").matches) {
+      setMobileNavOpen((open) => !open);
+      setProfileOpen(false);
+      return;
+    }
+
     setProfileOpen((open) => !open);
   }
 
   function handleLogout() {
     setProfileOpen(false);
+    setMobileNavOpen(false);
     if (onLogout) onLogout();
   }
 
@@ -583,7 +670,15 @@ function Dashboard({ user, onLogout }) {
         onSelectPage={setActivePage}
         onMenu={handleMenu}
         onLogout={handleLogout}
+        isMobileNavOpen={mobileNavOpen}
+        onCloseMobileNav={() => setMobileNavOpen(false)}
       />
+      <button
+        className={`mobile-nav-backdrop ${mobileNavOpen ? "is-visible" : ""}`}
+        type="button"
+        aria-label="Close navigation"
+        onClick={() => setMobileNavOpen(false)}
+      ></button>
       <ProfileCard isOpen={profileOpen} onClose={() => setProfileOpen(false)} sites={siteSummaries} user={user} />
       <LineDetailModal
         lineId={selectedLineId}
@@ -592,16 +687,54 @@ function Dashboard({ user, onLogout }) {
       />
       <main className="dashboard-content">
         <header className="dashboard-header">
-          <img className="brand-logo" src="https://github.com/wblsugihara/image/blob/main/sugi_white.png?raw=true" alt="Sugihara Grand Industries" />
-          <div>
-            
-            <h1>Production Line Overview </h1>
+          <div className="header-brand">
+            <img className="brand-logo" src="https://github.com/wblsugihara/image/blob/main/sugi_white.png?raw=true" alt="Sugihara Grand Industries" />
+            <div>
+              <p className="dashboard-eyebrow">Live control room</p>
+              <h1>Production Line Overview</h1>
+              <p className="dashboard-subtitle">Port Klang and Sendayan production telemetry</p>
+            </div>
           </div>
-          <div className={`connection-pill ${socketState}`}>{socketState}</div>
+          <div className="header-actions">
+            <time className="header-time" dateTime={new Date().toISOString()}>
+              {new Date().toLocaleDateString("en-MY", { day: "2-digit", month: "short", year: "numeric" })}
+            </time>
+            <div className={`connection-pill ${socketState}`}>
+              <span></span>
+              {socketState}
+            </div>
+          </div>
         </header>
 
         {activePage === "progress" && (
           <>
+            <section className="summary-grid" aria-label="Production overview summary">
+              <SummaryCard
+                label="Overall OEE"
+                value={`${totalSummary.oee}%`}
+                detail={`${totalSummary.lineCount} monitored lines`}
+                tone="oee"
+              />
+              <SummaryCard
+                label="Actual Output"
+                value={totalSummary.actual.toLocaleString()}
+                detail={`${totalSummary.progress}% of ${totalSummary.target.toLocaleString()} target`}
+                tone="output"
+              />
+              <SummaryCard
+                label="Total Reject"
+                value={totalSummary.rejects.toLocaleString()}
+                detail="Across active sessions"
+                tone={totalSummary.rejects > 0 ? "reject" : "stable"}
+              />
+              <SummaryCard
+                label="Socket"
+                value={socketState}
+                detail="Backend WebSocket state"
+                tone={socketState === "connected" ? "stable" : "reject"}
+              />
+            </section>
+
             <ProductionSection
               title="Port Klang"
               lineIds={PORT_KLANG_LINES}
@@ -620,6 +753,10 @@ function Dashboard({ user, onLogout }) {
         {activePage === "attendance" && <PlaceholderPage title="Attendance" />}
         {activePage === "history" && <PlaceholderPage title="History" />}
         {activePage === "logged-out" && <PlaceholderPage title="Logged out" />}
+
+        <footer className="dashboard-footer">
+          <span>© Digital Transformation Unit</span>
+        </footer>
       </main>
     </div>
   );

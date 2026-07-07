@@ -12,14 +12,33 @@ const app = express();
 app.use(express.json());
 
 const server = http.createServer(app);
+const PORT = Number(process.env.PORT) || 3200;
+const configuredOrigins = (process.env.FRONTEND_ORIGINS || "")
+    .split(",")
+    .map(origin => origin.trim())
+    .filter(Boolean);
+const allowedOrigins = Array.from(new Set([
+  "https://productionoverview.sugidigital.org",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  ...configuredOrigins,
+]));
+
+function resolveCorsOrigin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+    }
+
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+}
 
 app.use(cors({
-  origin: "https://productionoverview.sugidigital.org",
+  origin: resolveCorsOrigin,
 }));
 
 const io = new Server(server, {
   cors: {
-    origin: "https://productionoverview.sugidigital.org",
+    origin: resolveCorsOrigin,
   },
 });
 
@@ -30,6 +49,19 @@ const pool = new Pool ({
     database:process.env.DB_DB,
     port:Number(process.env.DB_PORT)
 })
+const hasDatabaseConfig = Boolean(
+    process.env.DB_HOST &&
+    process.env.DB_USER &&
+    process.env.DB_PASS &&
+    process.env.DB_DB &&
+    process.env.DB_PORT
+);
+const localAdmin = {
+    enabled: process.env.ENABLE_LOCAL_ADMIN === "true",
+    email: process.env.LOCAL_ADMIN_EMAIL || "admin@local.test",
+    password: process.env.LOCAL_ADMIN_PASSWORD || "admin123",
+    name: process.env.LOCAL_ADMIN_NAME || "Local Admin",
+};
 
 const Existing_ID = ['ABB4', 'ABB1', 'ABB7','ABB2','SDY1','SDY2'];
 const productionLines = new Map();
@@ -107,6 +139,28 @@ io.on('connection', (socket) => {
 app.post("/login", async(req,res) =>{
     try {
         const { email, password } = req.body;
+        const normalizedEmail = String(email || "").trim().toLowerCase();
+
+        if (
+            localAdmin.enabled &&
+            normalizedEmail === localAdmin.email.toLowerCase() &&
+            password === localAdmin.password
+        ) {
+            return res.json({
+                message: "Successful Login",
+                user: {
+                    id: "local-admin",
+                    email: localAdmin.email,
+                    name: localAdmin.name,
+                },
+            });
+        }
+
+        if (!hasDatabaseConfig) {
+            return res.status(503).json({
+                message: "Database is not configured locally. Use local admin access or add server .env DB settings.",
+            });
+        }
 
         const result = await pool.query(
             `
@@ -172,7 +226,11 @@ const API_KEY = process.env.API_KEY;
 app.use((req, res, next) => {
     const key = req.headers['x-api-key'];
 
-    if (key != API_KEY) {
+    if (!API_KEY) {
+        return res.status(503).json({ success: false, error: 'API key is not configured on the backend' });
+    }
+
+    if (key !== API_KEY) {
         return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
 
@@ -247,6 +305,13 @@ app.post('/update_product_count', async (req, res) => {
     const data = req.body;
     const line_id = data.line_id;
     const productCount = Number(data.product_count) || 0;
+    const hasMetric = (key) => data[key] !== undefined && data[key] !== null && data[key] !== "";
+    const oee = hasMetric("oee") ? Number(data.oee) || 0 : null;
+    const availability_pct = hasMetric("availability_pct") || hasMetric("availability_pctm")
+        ? Number(data.availability_pct ?? data.availability_pctm) || 0
+        : null;
+    const quality_pct = hasMetric("quality_pct") ? Number(data.quality_pct) || 0 : null;
+    const performance_pct = hasMetric("performance_pct") ? Number(data.performance_pct) || 0 : null;
 
     const line = productionLines.get(line_id);
 
@@ -264,16 +329,33 @@ app.post('/update_product_count', async (req, res) => {
         await pool.query(
             `
             UPDATE session
-            SET product_count = $1
-            WHERE session_id = $2
+            SET 
+                product_count = $1,
+                oee = COALESCE($2, oee),
+                availability_pct = COALESCE($3, availability_pct),
+                quality_pct = COALESCE($4, quality_pct),
+                performance_pct = COALESCE($5, performance_pct)
+            WHERE session_id = $6
             `,
-            [productCount, session_id]
+            [productCount, oee, availability_pct, quality_pct, performance_pct, session_id]
         );
 
         line.product_count = productCount;
+        if (oee !== null) line.oee = oee;
+        if (availability_pct !== null) {
+            line.availability_pct = availability_pct;
+            line.availability_pctm = availability_pct;
+        }
+        if (quality_pct !== null) line.quality_pct = quality_pct;
+        if (performance_pct !== null) line.performance_pct = performance_pct;
 
         emitLineChanges(line_id, {
             product_count: line.product_count,
+            oee: line.oee,
+            availability_pct: line.availability_pct,
+            availability_pctm: line.availability_pctm,
+            quality_pct: line.quality_pct,
+            performance_pct: line.performance_pct,
         });
 
         return res.json({ success: true, session_id, line });
@@ -688,4 +770,4 @@ app.post('/testtry', async (req, res) => {
 });
 
 
-server.listen(3200, () => console.log(`API + WebSocket listening on port 3200`));
+server.listen(PORT, () => console.log(`API + WebSocket listening on port ${PORT}`));
