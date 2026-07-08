@@ -7,6 +7,14 @@
 
 ## Raspberry Pi Setup
 
+Fast start from a clean Raspberry Pi terminal:
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/digitalsgisb/production-overview/main/scripts/setup-pi.sh)"
+```
+
+The script installs Git/Node if needed, clones or updates the repo, creates `main/server/.env` if missing, installs dependencies, builds the frontend, creates systemd service files if missing, and starts both services.
+
 1. Install Node.js LTS on the Raspberry Pi.
 2. Clone the repository.
 3. Install backend dependencies:
