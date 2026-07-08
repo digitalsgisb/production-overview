@@ -48,6 +48,12 @@ button {
   font: inherit;
 }
 
+@property --oee-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
 .app-shell {
   position: relative;
   min-height: 100vh;
@@ -671,6 +677,7 @@ button {
   border-radius: 50%;
   background: conic-gradient(var(--status-color, #4b5563) var(--oee-angle, 0deg), rgba(148, 163, 184, 0.13) 0);
   text-align: center;
+  transition: --oee-angle 0.7s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease;
 }
 
 .oee-ring::before {
@@ -689,11 +696,18 @@ button {
 }
 
 .oee-value {
+  width: 4.6ch;
   color: var(--text-primary);
   font-size: 18px;
   font-weight: 800;
   line-height: 1;
   letter-spacing: 0;
+  white-space: nowrap;
+  transition: font-size 0.18s ease;
+}
+
+.oee-ring[data-value-size="compact"] .oee-value {
+  font-size: 15px;
 }
 
 .oee-label {
@@ -785,6 +799,8 @@ button {
   border: 1px solid rgba(148, 163, 184, 0.12);
   border-radius: 5px;
   background: rgba(255, 255, 255, 0.025);
+  contain: layout paint;
+  transition: border-color 0.22s ease, background 0.22s ease;
 }
 
 .metric-strip span {
@@ -797,9 +813,13 @@ button {
 
 .metric-strip strong {
   display: block;
+  width: 5.2ch;
   margin-top: 4px;
   color: var(--text-primary);
   font-size: 13px;
+  line-height: 1.15;
+  white-space: nowrap;
+  transition: color 0.22s ease;
 }
 
 .stat-row {
@@ -1491,10 +1511,11 @@ button {
 .oee-value,
 .progress-pct,
 .stat-value,
+.metric-value,
 .connection-pill,
 .summary-card__value {
-  font-variant-numeric: normal;
-  font-feature-settings: "zero" 0;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "zero" 0;
 }
 
 @media (min-width: 768px) {

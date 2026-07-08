@@ -1,4 +1,6 @@
-  const STATUS_CONFIG = {
+import { memo } from "react";
+
+const STATUS_CONFIG = {
     normal: { label: "Running", bg: "#1fcb6b", fg: "#06210f", pulse: true },
     running: { label: "Running", bg: "#1fcb6b", fg: "#06210f", pulse: true },
     rest: { label: "Rest", bg: "#f2a93b", fg: "#ffffff", pulse: false },
@@ -33,16 +35,26 @@
     return Number.isFinite(number) ? number : fallback;
   }
 
-  function LineCard({ lineId, line, onClick }) {
+  function formatPercent(value) {
+    const number = toNumber(value);
+    const rounded = Number(number.toFixed(1));
+    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  }
+
+  function LineCard({ lineId, line, onSelectLine }) {
     const status = getLineValue(line, ["status", "mode", "machine_mode"], "offline");
     const count = toNumber(getLineValue(line, ["product_count", "count"], 0));
     const target = toNumber(getLineValue(line, ["target", "hourly_plan"], 0));
     const reject = toNumber(getLineValue(line, ["product_reject", "reject"], 0));
     const oee = toNumber(getLineValue(line, ["oee"], 0));
+    const oeeDisplay = formatPercent(oee);
     const model = getLineValue(line, ["model"], "No model");
     const availability = toNumber(getLineValue(line, ["availability_pct", "availability_pctm"], 0));
     const performance = toNumber(getLineValue(line, ["performance_pct"], 0));
     const quality = toNumber(getLineValue(line, ["quality_pct"], 0));
+    const availabilityDisplay = formatPercent(availability);
+    const performanceDisplay = formatPercent(performance);
+    const qualityDisplay = formatPercent(quality);
     const progress = target > 0 ? Math.min(100, Math.round((count / target) * 100)) : 0;
     const cfg = getStatusConfig(status);
     const ringValue = Math.max(0, Math.min(100, oee)) * 3.6;
@@ -52,7 +64,7 @@
         className="line-card"
         type="button"
         style={{ "--status-color": cfg.bg, "--status-fg": cfg.fg, "--oee-angle": `${ringValue}deg` }}
-        onClick={onClick}
+        onClick={() => onSelectLine(lineId)}
         aria-label={`Open ${line?.line_id ?? lineId} details`}
       >
         <span className="line-card__shine" aria-hidden="true"></span>
@@ -63,8 +75,8 @@
               <span className="line-id-value">{line?.line_id ?? lineId}</span>
               <span className="line-model">{model}</span>
             </div>
-            <div className="oee-ring" aria-label={`OEE ${oee}%`}>
-              <span className="oee-value">{oee}%</span>
+            <div className="oee-ring" data-value-size={oeeDisplay.length > 3 ? "compact" : "normal"} aria-label={`OEE ${oeeDisplay}%`}>
+              <span className="oee-value">{oeeDisplay}%</span>
               <span className="oee-label">OEE</span>
             </div>
           </div>
@@ -91,15 +103,15 @@
           <div className="metric-strip" aria-label="OEE components">
             <div>
               <span>A</span>
-              <strong>{availability}%</strong>
+              <strong className="metric-value">{availabilityDisplay}%</strong>
             </div>
             <div>
               <span>P</span>
-              <strong>{performance}%</strong>
+              <strong className="metric-value">{performanceDisplay}%</strong>
             </div>
             <div>
               <span>Q</span>
-              <strong>{quality}%</strong>
+              <strong className="metric-value">{qualityDisplay}%</strong>
             </div>
           </div>
 
@@ -120,4 +132,4 @@
     );
   }
 
-  export default LineCard;
+  export default memo(LineCard);

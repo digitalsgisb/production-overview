@@ -367,10 +367,13 @@ app.post('/update_product_count', async (req, res) => {
 app.post('/oee_update', async (req,res) => {
     const data = req.body;
     const line_id = data.line_id;
-    const oee = Number(data.oee) || 0;
-    const quality_pct = Number(data.quality_pct) || 0;
-    const performance_pct = Number(data.performance_pct) || 0;
-    const availability_pct = Number(data.availability_pct ?? data.availability_pctm) || 0;
+    const hasMetric = (key) => data[key] !== undefined && data[key] !== null && data[key] !== "";
+    const oee = hasMetric("oee") ? Number(data.oee) || 0 : null;
+    const quality_pct = hasMetric("quality_pct") ? Number(data.quality_pct) || 0 : null;
+    const performance_pct = hasMetric("performance_pct") ? Number(data.performance_pct) || 0 : null;
+    const availability_pct = hasMetric("availability_pct") || hasMetric("availability_pctm")
+        ? Number(data.availability_pct ?? data.availability_pctm) || 0
+        : null;
 
     const line = productionLines.get(line_id);
 
@@ -389,20 +392,22 @@ app.post('/oee_update', async (req,res) => {
             `
             UPDATE session
             SET 
-                oee = $1,
-                availability_pct = $2,
-                quality_pct = $3,
-                performance_pct = $4
+                oee = COALESCE($1, oee),
+                availability_pct = COALESCE($2, availability_pct),
+                quality_pct = COALESCE($3, quality_pct),
+                performance_pct = COALESCE($4, performance_pct)
             WHERE session_id = $5
             `,
             [oee, availability_pct, quality_pct, performance_pct, session_id]
         );
 
-        line.oee = oee;
-        line.performance_pct = performance_pct;
-        line.availability_pct = availability_pct;
-        line.availability_pctm = availability_pct;
-        line.quality_pct = quality_pct;
+        if (oee !== null) line.oee = oee;
+        if (performance_pct !== null) line.performance_pct = performance_pct;
+        if (availability_pct !== null) {
+            line.availability_pct = availability_pct;
+            line.availability_pctm = availability_pct;
+        }
+        if (quality_pct !== null) line.quality_pct = quality_pct;
 
         emitLineChanges(line_id, {
             oee: line.oee,

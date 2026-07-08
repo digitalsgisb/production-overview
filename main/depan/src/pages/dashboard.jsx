@@ -153,6 +153,12 @@ function getLineOee(line) {
   return 0;
 }
 
+function formatPercent(value) {
+  const number = getNumber(value);
+  const rounded = Number(number.toFixed(1));
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
  const STATUS_CONFIG = {
     normal: { label: "Running", bg: "#1fcb6b", fg: "#06210f", pulse: true },
     running: { label: "Running", bg: "#1fcb6b", fg: "#06210f", pulse: true },
@@ -268,6 +274,10 @@ function LineDetailModal({ lineId, line, onClose }) {
   const availabilityPct = getNumber(getLineMetric(line, ["availability_pct", "availability_pctm"]));
   const performancePct = getNumber(getLineMetric(line, ["performance_pct"]));
   const qualityPct = getNumber(getLineMetric(line, ["quality_pct"]));
+  const oeeDisplay = formatPercent(oee);
+  const availabilityDisplay = formatPercent(availabilityPct);
+  const performanceDisplay = formatPercent(performancePct);
+  const qualityDisplay = formatPercent(qualityPct);
   // const hourlyOutput = getNumber(getLineMetric(line, ["hourly_output"]));
   // const standardCycle = getNumber(getLineMetric(line, ["standard_cycle_time", "standard_cycle"]));
   const progress = target > 0 ? Math.min(100, Math.round((count / target) * 100)) : 0;
@@ -302,7 +312,7 @@ function LineDetailModal({ lineId, line, onClose }) {
           <div className="modal-top-row">
             <div>
               <span className="stat-label">OEE</span>
-              <div className="modal-oee-value">{oee}%</div>
+              <div className="modal-oee-value">{oeeDisplay}%</div>
             </div>
             <div className="modal-progress">
               <span className="stat-label">Progress</span>
@@ -343,15 +353,15 @@ function LineDetailModal({ lineId, line, onClose }) {
           <div className="modal-stats-row modal-oee-components">
             <div className="modal-stat-cell">
               <span className="stat-label">Availability</span>
-              <span className="stat-value">{availabilityPct}%</span>
+              <span className="stat-value">{availabilityDisplay}%</span>
             </div>
             <div className="modal-stat-cell">
               <span className="stat-label">Performance</span>
-              <span className="stat-value">{performancePct}%</span>
+              <span className="stat-value">{performanceDisplay}%</span>
             </div>
             <div className="modal-stat-cell">
               <span className="stat-label">Quality</span>
-              <span className="stat-value">{qualityPct}%</span>
+              <span className="stat-value">{qualityDisplay}%</span>
             </div>
           </div>
 
@@ -537,7 +547,7 @@ function ProductionSection({ title, lineIds, lines, onSelectLine }) {
             key={lineId}
             lineId={lineId}
             line={lines[lineId] ?? createFallbackLine(lineId)}
-            onClick={() => onSelectLine(lineId)}
+            onSelectLine={onSelectLine}
           />
         ))}
       </div>
