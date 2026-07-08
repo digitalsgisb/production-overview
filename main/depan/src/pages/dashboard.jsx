@@ -20,29 +20,37 @@ const LINE_DOCUMENTATION_URLS = {
   SDY2: "https://l2sdygrafana.sugidigital.org/d/ad6zlmx/line-2-smart-dashboard?orgId=1&from=now-5m&to=now&timezone=browser&refresh=5s",
 };
 
-function Sidebar({ activePage, onSelectPage, onMenu, onLogout, isMobileNavOpen, onCloseMobileNav }) {
+function Sidebar({ activePage, onSelectPage, onMenu, onLogout, isMobileNavOpen, onCloseMobileNav, sites = [], user }) {
   function handleSelectPage(page) {
     onSelectPage(page);
     onCloseMobileNav();
   }
 
+  const displayName = user?.name || user?.email || "User";
+
   return (
     <aside className={`sidebar ${isMobileNavOpen ? "is-mobile-open" : ""}`} aria-label="Main navigation">
       <div className="sidebar__group sidebar__group--top">
-        <button
-          className="icon-btn icon-btn--menu"
-          type="button"
-          aria-label="Menu"
-          aria-expanded={isMobileNavOpen}
-          onClick={onMenu}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="3" y1="6" x2="21" y2="6"></line>
-            <line x1="3" y1="12" x2="21" y2="12"></line>
-            <line x1="3" y1="18" x2="21" y2="18"></line>
-          </svg>
+        <div className="sidebar-brand">
+          <img src="https://github.com/wblsugihara/image/blob/main/sugi_white.png?raw=true" alt="Sugihara Grand Industries" />
+          <div>
+            <strong>Sugihara</strong>
+            <span>Production Assets</span>
+          </div>
+        </div>
+
+        <button className="sidebar-user" type="button" aria-label="Open profile summary" onClick={onMenu}>
+          <span className="sidebar-user__avatar">{displayName.charAt(0).toUpperCase()}</span>
+          <span className="sidebar-user__meta">
+            <strong>{displayName}</strong>
+            <small>Control room</small>
+          </span>
         </button>
-        <span className="sidebar-mobile-title">Navigation</span>
+
+        <div className="sidebar-switch" aria-label="Production scope">
+          <span className="is-active">Lines</span>
+          <span>Sites</span>
+        </div>
       </div>
 
       <nav className="sidebar__group sidebar__group--middle" aria-label="Primary">
@@ -93,10 +101,26 @@ function Sidebar({ activePage, onSelectPage, onMenu, onLogout, isMobileNavOpen, 
         </button>
       </nav>
 
+      <div className="sidebar-sites" aria-label="Active sites">
+        <div className="sidebar-sites__title">
+          <span>Active Sites</span>
+          <strong>{sites.length}</strong>
+        </div>
+        {sites.map((site) => (
+          <div className="sidebar-site" key={site.key}>
+            <span className={`sidebar-site__dot sidebar-site__dot--${site.key}`}></span>
+            <div>
+              <strong>{site.name}</strong>
+              <small>{site.actual.toLocaleString()} output</small>
+            </div>
+          </div>
+        ))}
+      </div>
+
       <div className="sidebar__group sidebar__group--bottom">
         <div className="sidebar-dtu" aria-label="Digital Transformation Unit" title="Digital Transformation Unit">
           <span>DTU</span>
-          <span className="sidebar-dtu__tip">Digital Transformation Unit</span>
+          <small>Digital Transformation Unit</small>
         </div>
         <button className="icon-btn icon-btn--logout" type="button" aria-label="Log out" onClick={onLogout}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -407,6 +431,10 @@ function LineDetailModal({ lineId, line, onClose }) {
 }
 
 function ProfileCard({ isOpen, onClose, sites, user }) {
+  const displayName = user?.name || user?.email || "User";
+  const displayId = user?.id || user?.email || "Signed in";
+  const avatarLetter = displayName.charAt(0).toUpperCase();
+
   return (
     <>
       <div className={`profile-card ${isOpen ? "is-open" : ""}`} aria-hidden={!isOpen}>
@@ -418,10 +446,10 @@ function ProfileCard({ isOpen, onClose, sites, user }) {
         </button>
 
         <div className="profile-row">
-          <div className="profile-avatar">{user.name.charAt(0).toUpperCase()}</div>
+          <div className="profile-avatar">{avatarLetter}</div>
           <div className="profile-info">
-            <div className="profile-name">{user?.name}</div>
-            <div className="profile-id">{user?.id }</div>
+            <div className="profile-name">{displayName}</div>
+            <div className="profile-id">{displayId}</div>
           </div>
           {/* <div className="profile-status" title="Online"></div> */}
         </div>
@@ -565,6 +593,220 @@ function SummaryCard({ label, value, detail, tone = "neutral" }) {
   );
 }
 
+function getLineSnapshot(line) {
+  const status = getLineValue(line, ["machine_mode", "mode", "status"], "offline");
+  const count = getNumber(getLineMetric(line, ["product_count", "count"]));
+  const target = getNumber(getLineMetric(line, ["target", "hourly_plan"]));
+  const reject = getNumber(getLineMetric(line, ["product_reject", "reject"]));
+  const progress = target > 0 ? Math.min(100, Math.round((count / target) * 100)) : 0;
+  const oee = getLineOee(line);
+  const cfg = getStatusConfig(status);
+
+  return {
+    count,
+    cfg,
+    model: getLineValue(line, ["model"], "No model"),
+    oee,
+    progress,
+    reject,
+    status,
+    target,
+  };
+}
+
+function MiniTrend({ tone = "neutral" }) {
+  return (
+    <svg className={`mini-trend mini-trend--${tone}`} viewBox="0 0 180 68" aria-hidden="true">
+      <path className="mini-trend__grid" d="M0 46H180M0 24H180"></path>
+      <path className="mini-trend__ghost" d="M0 52C20 42 32 44 46 51C64 60 78 61 96 43C111 28 125 24 144 32C158 38 168 31 180 18"></path>
+      <path className="mini-trend__line" d="M0 54C18 39 30 43 44 49C62 57 74 54 91 39C108 24 124 26 140 35C157 45 168 33 180 21"></path>
+      <circle className="mini-trend__dot" cx="142" cy="35" r="3.5"></circle>
+      <circle className="mini-trend__dot" cx="180" cy="21" r="3.5"></circle>
+    </svg>
+  );
+}
+
+function CompactLineCard({ lineId, line, onSelectLine, tone = "neutral" }) {
+  const snapshot = getLineSnapshot(line);
+
+  return (
+    <button
+      className="compact-line-card"
+      type="button"
+      style={{ "--status-color": snapshot.cfg.bg, "--status-fg": snapshot.cfg.fg }}
+      onClick={() => onSelectLine(lineId)}
+      aria-label={`Open ${line?.line_id ?? lineId} details`}
+    >
+      <div className="compact-line-card__top">
+        <span className="compact-line-card__icon">{lineId.slice(-1)}</span>
+        <div>
+          <small>{snapshot.cfg.label}</small>
+          <strong>{line?.line_id ?? lineId}</strong>
+        </div>
+        <span className="compact-line-card__open" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M7 17 17 7"></path>
+            <path d="M8 7h9v9"></path>
+          </svg>
+        </span>
+      </div>
+      <div className="compact-line-card__metric">
+        <span>OEE</span>
+        <strong>{formatPercent(snapshot.oee)}%</strong>
+        <small>{snapshot.progress}% target progress</small>
+      </div>
+      <MiniTrend tone={tone} />
+    </button>
+  );
+}
+
+function PortfolioPanel({ sites, totalSummary }) {
+  return (
+    <aside className="portfolio-panel">
+      <div className="portfolio-panel__brand">
+        <img src="https://github.com/wblsugihara/image/blob/main/sugi_white.png?raw=true" alt="" />
+        <span>Live</span>
+      </div>
+      <h2>Production Portfolio</h2>
+      <p>Real-time output, OEE, and reject view across Port Klang and Sendayan.</p>
+      <div className="portfolio-panel__actions">
+        <button type="button">Overall {totalSummary.oee}% OEE</button>
+        <button type="button">{totalSummary.actual.toLocaleString()} Output</button>
+      </div>
+      <div className="portfolio-sites">
+        {sites.map((site) => (
+          <div className="portfolio-site" key={site.key}>
+            <div>
+              <strong>{site.name}</strong>
+              <small>{site.actual.toLocaleString()} / {site.target.toLocaleString()}</small>
+            </div>
+            <span>{site.progress}%</span>
+          </div>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+function ActiveLinePanel({ lineId, line, onSelectLine }) {
+  const snapshot = getLineSnapshot(line);
+  const availability = formatPercent(getNumber(getLineMetric(line, ["availability_pct", "availability_pctm"])));
+  const performance = formatPercent(getNumber(getLineMetric(line, ["performance_pct"])));
+  const quality = formatPercent(getNumber(getLineMetric(line, ["quality_pct"])));
+
+  return (
+    <section className="active-line-panel" style={{ "--status-color": snapshot.cfg.bg, "--status-fg": snapshot.cfg.fg }}>
+      <div className="active-line-panel__toolbar">
+        <span>Your active production</span>
+        <div className="active-line-panel__icons" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+      <div className="active-line-panel__body">
+        <div className="active-line-panel__main">
+          <p className="last-update">Last Update - live socket</p>
+          <div className="active-line-title">
+            <h2>{line?.line_id ?? lineId}</h2>
+            <span>{snapshot.cfg.label}</span>
+            <button type="button" onClick={() => onSelectLine(lineId)}>View Profile</button>
+          </div>
+          <span className="active-line-panel__label">Current OEE</span>
+          <strong className="active-line-panel__value">{formatPercent(snapshot.oee)}%</strong>
+          <div className="active-line-actions">
+            <button type="button">Target {snapshot.target.toLocaleString()}</button>
+            <button type="button">Reject {snapshot.reject.toLocaleString()}</button>
+          </div>
+        </div>
+        <div className="period-card">
+          <div>
+            <h3>Production Period</h3>
+            <span>Daily contribution</span>
+          </div>
+          <div className="period-track">
+            <span style={{ left: `${snapshot.progress}%` }}></span>
+          </div>
+          <small>{snapshot.progress}% of plan</small>
+        </div>
+      </div>
+      <div className="active-metric-row">
+        <div>
+          <span>Availability</span>
+          <strong>{availability}%</strong>
+        </div>
+        <div>
+          <span>Performance</span>
+          <strong>{performance}%</strong>
+        </div>
+        <div>
+          <span>Quality</span>
+          <strong>{quality}%</strong>
+        </div>
+        <div>
+          <span>Model</span>
+          <strong>{snapshot.model}</strong>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MobileHero({ displayName, totalSummary, sites }) {
+  const firstName = displayName.split(" ")[0] || "Team";
+
+  return (
+    <section className="mobile-hero">
+      <p>Hello, {firstName}</p>
+      <h1>How's Production Today?</h1>
+      <div className="mobile-site-strip">
+        {sites.map((site) => (
+          <span key={site.key} className={site.progress >= 80 ? "is-good" : ""}>
+            <strong>{site.oee}%</strong>
+            {site.name}
+          </span>
+        ))}
+        <span>
+          <strong>{totalSummary.rejects}</strong>
+          Reject
+        </span>
+      </div>
+    </section>
+  );
+}
+
+function MobileMetricDeck({ totalSummary }) {
+  return (
+    <section className="mobile-metric-deck" aria-label="Mobile production overview">
+      <div className="mobile-score-card">
+        <span>OEE Score</span>
+        <strong>{totalSummary.oee}%</strong>
+        <div className="dot-matrix" aria-hidden="true">
+          {Array.from({ length: 28 }).map((_, index) => (
+            <span className={index < Math.round((totalSummary.oee / 100) * 28) ? "is-lit" : ""} key={index}></span>
+          ))}
+        </div>
+      </div>
+      <div className="mobile-output-card">
+        <span>Output</span>
+        <strong>{totalSummary.actual.toLocaleString()}</strong>
+        <small>{totalSummary.progress}% target</small>
+        <div className="mini-bars" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+      <div className="mobile-ring-card">
+        <span>Quality Balance</span>
+        <strong>{totalSummary.rejects}</strong>
+        <small>reject</small>
+      </div>
+    </section>
+  );
+}
+
 function PlaceholderPage({ title }) {
   return (
     <section className="placeholder-page">
@@ -620,6 +862,30 @@ function Dashboard({ user, onLogout }) {
     return { actual, target, rejects, oee, progress, lineCount: allLines.length };
   }, [seededLines]);
 
+  const displayName = user?.name || user?.email || "User";
+  const focusLineId = useMemo(() => {
+    const runningLine = ALL_LINE_IDS.find((lineId) => {
+      const status = String(getLineValue(seededLines[lineId], ["machine_mode", "mode", "status"], "offline"))
+        .trim()
+        .toLowerCase()
+        .replace(/[\s-]+/g, "_");
+
+      return status === "normal" || status === "running";
+    });
+
+    return runningLine || PORT_KLANG_LINES[0];
+  }, [seededLines]);
+  const runningLineCount = useMemo(() => {
+    return ALL_LINE_IDS.filter((lineId) => {
+      const status = String(getLineValue(seededLines[lineId], ["machine_mode", "mode", "status"], "offline"))
+        .trim()
+        .toLowerCase()
+        .replace(/[\s-]+/g, "_");
+
+      return status === "normal" || status === "running";
+    }).length;
+  }, [seededLines]);
+
   useEffect(() => {
     const socket = io(SOCKET_URL);
 
@@ -672,6 +938,8 @@ function Dashboard({ user, onLogout }) {
         onLogout={handleLogout}
         isMobileNavOpen={mobileNavOpen}
         onCloseMobileNav={() => setMobileNavOpen(false)}
+        sites={siteSummaries}
+        user={user}
       />
       <button
         className={`mobile-nav-backdrop ${mobileNavOpen ? "is-visible" : ""}`}
@@ -686,24 +954,81 @@ function Dashboard({ user, onLogout }) {
         onClose={() => setSelectedLineId(null)}
       />
       <main className="dashboard-content">
-        <header className="dashboard-header">
-          <div className="header-brand">
-            <img className="brand-logo" src="https://github.com/wblsugihara/image/blob/main/sugi_white.png?raw=true" alt="Sugihara Grand Industries" />
-            <div>
-              <p className="dashboard-eyebrow">Live control room</p>
-              <h1>Production Line Overview</h1>
-              <p className="dashboard-subtitle">Port Klang and Sendayan production telemetry</p>
+        <header className="dashboard-topbar">
+          <button
+            className="user-chip"
+            type="button"
+            aria-label="Open profile summary"
+            onClick={() => {
+              setProfileOpen(true);
+              setMobileNavOpen(false);
+            }}
+          >
+            <span className="user-chip__avatar">{displayName.charAt(0).toUpperCase()}</span>
+            <span className="user-chip__text">
+              <span>{displayName}</span>
+              <small>Control room</small>
+            </span>
+          </button>
+          <button className="live-shift-btn" type="button">Live Shift</button>
+          <div className="topbar-actions">
+            <button type="button" aria-label="Notifications">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 7h18s-3 0-3-7"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+              <span>{runningLineCount}</span>
+            </button>
+            <div className="search-pill" aria-label="Search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <path d="m21 21-4.35-4.35"></path>
+              </svg>
+              <span>Search...</span>
             </div>
-          </div>
-          <div className="header-actions">
-            <time className="header-time" dateTime={new Date().toISOString()}>
-              {new Date().toLocaleDateString("en-MY", { day: "2-digit", month: "short", year: "numeric" })}
-            </time>
+            <button type="button" aria-label="Settings">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.51a2 2 0 0 1 1-1.72l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
           </div>
         </header>
 
         {activePage === "progress" && (
           <>
+            <MobileHero displayName={displayName} totalSummary={totalSummary} sites={siteSummaries} />
+            <MobileMetricDeck totalSummary={totalSummary} />
+
+            <section className="dashboard-title-row">
+              <div>
+                <p className="dashboard-eyebrow">Recommended lines for live focus</p>
+                <h1>Production Line Overview</h1>
+              </div>
+              <div className="dashboard-filter-row" aria-label="Dashboard filters">
+                <span>24H</span>
+                <span>OEE</span>
+                <span>Output</span>
+              </div>
+            </section>
+
+            <section className="command-grid">
+              <div className="command-main">
+                <div className="compact-line-grid">
+                  {PORT_KLANG_LINES.map((lineId, index) => (
+                    <CompactLineCard
+                      key={lineId}
+                      lineId={lineId}
+                      line={seededLines[lineId]}
+                      tone={index === 2 ? "danger" : "neutral"}
+                      onSelectLine={setSelectedLineId}
+                    />
+                  ))}
+                </div>
+              </div>
+              <PortfolioPanel sites={siteSummaries} totalSummary={totalSummary} />
+            </section>
+
             <section className="summary-grid" aria-label="Production overview summary">
               <SummaryCard
                 label="Overall OEE"
@@ -724,6 +1049,12 @@ function Dashboard({ user, onLogout }) {
                 tone={totalSummary.rejects > 0 ? "reject" : "stable"}
               />
             </section>
+
+            <ActiveLinePanel
+              lineId={focusLineId}
+              line={seededLines[focusLineId]}
+              onSelectLine={setSelectedLineId}
+            />
 
             <ProductionSection
               title="Port Klang"
