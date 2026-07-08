@@ -1,26 +1,26 @@
 import { memo } from "react";
 
 const STATUS_CONFIG = {
-    normal: { label: "Running", bg: "#cbd5e1", fg: "#0f172a" },
-    running: { label: "Running", bg: "#cbd5e1", fg: "#0f172a" },
-    loading: { label: "Loading", bg: "#9fb8d8", fg: "#0f172a" },
-    delay: { label: "Delay", bg: "#d4b36f", fg: "#18130a" },
-    rest: { label: "Rest", bg: "#d4b36f", fg: "#18130a" },
-    downtime: { label: "Downtime", bg: "#c46b78", fg: "#ffffff" },
-    down: { label: "Downtime", bg: "#c46b78", fg: "#ffffff" },
-    planned_stop: { label: "Planned Stop", bg: "#c46b78", fg: "#ffffff" },
-    maintenance: { label: "Planned Stop", bg: "#c46b78", fg: "#ffffff" },
-    idle: { label: "Idle", bg: "#d4b36f", fg: "#18130a" },
-    model_change: { label: "Model Change", bg: "#9fb8d8", fg: "#0f172a" },
-    offline: { label: "Offline", bg: "#8b97a8", fg: "#ffffff" },
+    normal: { label: "Running", bg: "#20d487", fg: "#04150f" },
+    running: { label: "Running", bg: "#20d487", fg: "#04150f" },
+    loading: { label: "Loading", bg: "#4ea1ff", fg: "#05111f" },
+    delay: { label: "Delay", bg: "#f3b64d", fg: "#1b1203" },
+    rest: { label: "Rest", bg: "#f3b64d", fg: "#1b1203" },
+    downtime: { label: "Downtime", bg: "#ef3f5f", fg: "#ffffff" },
+    down: { label: "Downtime", bg: "#ef3f5f", fg: "#ffffff" },
+    planned_stop: { label: "Planned Stop", bg: "#ea5f7b", fg: "#ffffff" },
+    maintenance: { label: "Planned Stop", bg: "#ea5f7b", fg: "#ffffff" },
+    idle: { label: "Idle", bg: "#f3b64d", fg: "#1b1203" },
+    model_change: { label: "Model Change", bg: "#4ea1ff", fg: "#05111f" },
+    offline: { label: "Offline", bg: "#94a3b8", fg: "#0b111a" },
   };//planned_stop(light_red),normal(running),model_change(biru),downtime(red),rest(kuning)
 
   function getStatusConfig(status) {
     const key = String(status || "offline").trim().toLowerCase().replace(/[\s-]+/g, "_");
     return STATUS_CONFIG[key] || {
       label: status || "Unknown",
-      bg: "#8b97a8",
-      fg: "#ffffff",
+      bg: "#94a3b8",
+      fg: "#0b111a",
     };
   }
 
@@ -51,9 +51,9 @@ const STATUS_CONFIG = {
   }
 
   function getOeeColor(oee) {
-    if (oee >= 80) return "#cbd5e1";
-    if (oee >= 30) return "#d4b36f";
-    return "#c46b78";
+    if (oee >= 80) return "#20d487";
+    if (oee >= 30) return "#f3b64d";
+    return "#ef3f5f";
   }
 
   function LineCard({ lineId, line, onSelectLine }) {

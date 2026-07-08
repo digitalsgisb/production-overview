@@ -14,14 +14,14 @@
   --text-secondary: #9aa7b8;
   --text-dim: #687586;
   --track-bg: rgba(148, 163, 184, 0.12);
-  --accent-cyan: #38bdf8;
-  --accent-blue: #93c5fd;
-  --accent-lime: #22c55e;
-  --accent-violet: #b8c1cf;
-  --accent-gold: #c7a76c;
-  --running-bg: #16a34a;
-  --stopped-bg: #dc2626;
-  --warning-bg: #d9a441;
+  --accent-cyan: #4cc9f0;
+  --accent-blue: #5b8cff;
+  --accent-lime: #20d487;
+  --accent-violet: #a78bfa;
+  --accent-gold: #d7b66d;
+  --running-bg: #20d487;
+  --stopped-bg: #ef3f5f;
+  --warning-bg: #f3b64d;
   --shadow-soft: 0 22px 60px rgba(0, 0, 0, 0.34);
 }
 
@@ -73,9 +73,10 @@ button {
   z-index: 0;
   pointer-events: none;
   background:
-    linear-gradient(120deg, rgba(255, 255, 255, 0.035), transparent 34%),
-    linear-gradient(180deg, rgba(148, 163, 184, 0.045), transparent 38%);
-  opacity: 0.72;
+    linear-gradient(128deg, rgba(76, 201, 240, 0.1), transparent 31%),
+    linear-gradient(235deg, rgba(215, 182, 109, 0.12), transparent 38%),
+    linear-gradient(180deg, rgba(167, 139, 250, 0.055), transparent 44%);
+  opacity: 0.82;
 }
 
 .app-shell::after {
@@ -284,14 +285,21 @@ button {
   border: 1px solid var(--card-border);
   border-radius: 6px;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 32%),
-    linear-gradient(250deg, rgba(199, 167, 108, 0.08), transparent 42%),
+    linear-gradient(128deg, rgba(76, 201, 240, 0.2), transparent 28%),
+    linear-gradient(250deg, rgba(215, 182, 109, 0.19), transparent 46%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), transparent 62%),
     rgba(11, 15, 21, 0.92);
   box-shadow: var(--shadow-soft);
 }
 
 .dashboard-header::before {
-  display: none;
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  display: block;
+  background: linear-gradient(90deg, var(--accent-gold), var(--accent-cyan) 42%, var(--accent-violet));
+  opacity: 0.92;
 }
 
 @keyframes headerSheen {
@@ -376,8 +384,10 @@ button {
   padding: 8px 12px;
   border: 1px solid var(--card-border);
   border-radius: 5px;
-  background: rgba(5, 8, 13, 0.62);
-  color: var(--text-secondary);
+  background:
+    linear-gradient(135deg, rgba(215, 182, 109, 0.12), rgba(76, 201, 240, 0.06)),
+    rgba(5, 8, 13, 0.72);
+  color: #cfd8e6;
   font-size: 12px;
   font-weight: 750;
   letter-spacing: 0.08em;
@@ -398,12 +408,22 @@ button {
   padding: 16px;
   border: 1px solid var(--card-border);
   border-radius: 6px;
-  background: rgba(13, 18, 25, 0.82);
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.16);
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--summary-a, var(--accent-cyan)) 11%, transparent), transparent 54%),
+    rgba(13, 18, 25, 0.86);
+  box-shadow:
+    0 14px 30px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
 .summary-card::before {
-  display: none;
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  display: block;
+  background: linear-gradient(90deg, var(--summary-a, var(--accent-cyan)), var(--summary-b, var(--accent-gold)));
+  box-shadow: 0 0 22px color-mix(in srgb, var(--summary-a, var(--accent-cyan)) 34%, transparent);
 }
 
 .summary-card::after {
@@ -524,22 +544,48 @@ button {
   overflow: hidden;
   padding: 0;
   border: 1px solid var(--card-border);
+  border-color: color-mix(in srgb, var(--status-color, #4b5563) 34%, rgba(128, 146, 168, 0.2));
   border-radius: 6px;
   background:
+    linear-gradient(145deg, color-mix(in srgb, var(--status-color, #4b5563) 10%, transparent), transparent 36%),
     linear-gradient(155deg, rgba(255, 255, 255, 0.035), transparent 46%),
     rgba(13, 18, 25, 0.9);
   color: inherit;
   cursor: pointer;
   text-align: left;
   appearance: none;
-  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.18);
+  box-shadow:
+    0 14px 32px rgba(0, 0, 0, 0.18),
+    0 0 30px color-mix(in srgb, var(--status-color, #4b5563) 8%, transparent);
   transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
 }
 
+.line-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, var(--status-color, #4b5563), rgba(255, 255, 255, 0.78));
+  box-shadow: 0 0 24px color-mix(in srgb, var(--status-color, #4b5563) 46%, transparent);
+}
+
+.line-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--status-color, #4b5563) 16%, transparent), transparent 18%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 34%);
+  opacity: 0.78;
+}
+
 .line-card:hover {
-  border-color: var(--card-border-strong);
+  border-color: color-mix(in srgb, var(--status-color, #4b5563) 62%, var(--card-border-strong));
   transform: translateY(-2px);
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
+  box-shadow:
+    0 18px 42px rgba(0, 0, 0, 0.24),
+    0 0 44px color-mix(in srgb, var(--status-color, #4b5563) 15%, transparent);
 }
 
 .line-card:focus-visible {
@@ -620,8 +666,11 @@ button {
   gap: 5px;
   padding: 10px 12px;
   border: 1px solid rgba(148, 163, 184, 0.14);
+  border-color: color-mix(in srgb, var(--status-color, #4b5563) 22%, rgba(148, 163, 184, 0.14));
   border-radius: 5px;
-  background: rgba(255, 255, 255, 0.025);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--status-color, #4b5563) 12%, transparent), transparent 58%),
+    rgba(255, 255, 255, 0.025);
 }
 
 .line-model-label {
@@ -635,8 +684,8 @@ button {
 .line-model-value {
   width: 100%;
   color: var(--text-primary);
-  font-size: 15px;
-  font-weight: 850;
+  font-size: 16px;
+  font-weight: 900;
   line-height: 1.15;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -654,8 +703,12 @@ button {
   justify-content: center;
   gap: 3px;
   border-radius: 50%;
-  background: conic-gradient(var(--oee-color, #4b5563) var(--oee-angle, 0deg), rgba(148, 163, 184, 0.13) 0);
+  background:
+    conic-gradient(var(--oee-color, #4b5563) var(--oee-angle, 0deg), rgba(148, 163, 184, 0.13) 0);
   text-align: center;
+  box-shadow:
+    0 0 20px color-mix(in srgb, var(--oee-color, #4b5563) 18%, transparent),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
   transition: --oee-angle 0.7s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease;
 }
 
@@ -705,9 +758,10 @@ button {
   gap: 12px;
   padding: 9px 12px;
   border: 1px solid rgba(148, 163, 184, 0.14);
+  border-color: color-mix(in srgb, var(--status-color, #4b5563) 28%, rgba(148, 163, 184, 0.14));
   border-radius: 5px;
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)),
+    linear-gradient(90deg, color-mix(in srgb, var(--status-color, #4b5563) 18%, transparent), rgba(255, 255, 255, 0.01)),
     rgba(255, 255, 255, 0.018);
 }
 
@@ -721,8 +775,14 @@ button {
 
 .status-panel__value {
   min-width: 0;
-  color: var(--status-color, var(--text-primary));
-  font-size: 12px;
+  padding: 5px 9px;
+  border: 1px solid color-mix(in srgb, var(--status-color, #4b5563) 54%, transparent);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.26), transparent 62%),
+    var(--status-color, var(--text-primary));
+  color: var(--status-fg, #071016);
+  font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.08em;
   text-align: right;
@@ -757,7 +817,9 @@ button {
 .progress-fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, rgba(203, 213, 225, 0.34), rgba(241, 245, 249, 0.74));
+  background:
+    linear-gradient(90deg, var(--status-color, #4b5563), rgba(255, 255, 255, 0.78));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--status-color, #4b5563) 42%, transparent);
   transition: width 0.45s ease;
 }
 
@@ -771,8 +833,11 @@ button {
   min-width: 0;
   padding: 8px 9px;
   border: 1px solid rgba(148, 163, 184, 0.12);
+  border-color: color-mix(in srgb, var(--status-color, #4b5563) 16%, rgba(148, 163, 184, 0.12));
   border-radius: 5px;
-  background: rgba(255, 255, 255, 0.025);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
+    rgba(255, 255, 255, 0.025);
   contain: layout paint;
   transition: border-color 0.22s ease, background 0.22s ease;
 }
@@ -858,9 +923,14 @@ button {
   max-height: 88vh;
   overflow-y: auto;
   border: 1px solid var(--card-border);
+  border-color: color-mix(in srgb, var(--status-color, #4b5563) 34%, var(--card-border));
   border-radius: 6px;
-  background: var(--bg-panel-solid);
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.48);
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--status-color, #4b5563) 9%, transparent), transparent 42%),
+    var(--bg-panel-solid);
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.48),
+    0 0 46px color-mix(in srgb, var(--status-color, #4b5563) 12%, transparent);
 }
 
 .line-modal-head {
@@ -945,7 +1015,7 @@ button {
   border-radius: 5px;
   padding: 13px 14px;
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.04), transparent),
+    linear-gradient(90deg, color-mix(in srgb, var(--status-color, #4b5563) 13%, transparent), transparent),
     rgba(255, 255, 255, 0.025);
 }
 

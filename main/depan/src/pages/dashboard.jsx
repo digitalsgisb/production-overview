@@ -160,26 +160,26 @@ function formatPercent(value) {
 }
 
  const STATUS_CONFIG = {
-    normal: { label: "Running", bg: "#cbd5e1", fg: "#0f172a" },
-    running: { label: "Running", bg: "#cbd5e1", fg: "#0f172a" },
-    loading: { label: "Loading", bg: "#9fb8d8", fg: "#0f172a" },
-    delay: { label: "Delay", bg: "#d4b36f", fg: "#18130a" },
-    rest: { label: "Rest", bg: "#d4b36f", fg: "#18130a" },
-    downtime: { label: "Downtime", bg: "#c46b78", fg: "#ffffff" },
-    down: { label: "Downtime", bg: "#c46b78", fg: "#ffffff" },
-    planned_stop: { label: "Planned Stop", bg: "#c46b78", fg: "#ffffff" },
-    maintenance: { label: "Planned Stop", bg: "#c46b78", fg: "#ffffff" },
-    idle: { label: "Idle", bg: "#d4b36f", fg: "#18130a" },
-    model_change: { label: "Model Change", bg: "#9fb8d8", fg: "#0f172a" },
-    offline: { label: "Offline", bg: "#8b97a8", fg: "#ffffff" },
+    normal: { label: "Running", bg: "#20d487", fg: "#04150f" },
+    running: { label: "Running", bg: "#20d487", fg: "#04150f" },
+    loading: { label: "Loading", bg: "#4ea1ff", fg: "#05111f" },
+    delay: { label: "Delay", bg: "#f3b64d", fg: "#1b1203" },
+    rest: { label: "Rest", bg: "#f3b64d", fg: "#1b1203" },
+    downtime: { label: "Downtime", bg: "#ef3f5f", fg: "#ffffff" },
+    down: { label: "Downtime", bg: "#ef3f5f", fg: "#ffffff" },
+    planned_stop: { label: "Planned Stop", bg: "#ea5f7b", fg: "#ffffff" },
+    maintenance: { label: "Planned Stop", bg: "#ea5f7b", fg: "#ffffff" },
+    idle: { label: "Idle", bg: "#f3b64d", fg: "#1b1203" },
+    model_change: { label: "Model Change", bg: "#4ea1ff", fg: "#05111f" },
+    offline: { label: "Offline", bg: "#94a3b8", fg: "#0b111a" },
   };//planned_stop(light_red),normal(running),model_change(biru),downtime(red),rest(kuning)
 
 function getStatusConfig(status) {
   const key = String(status || "offline").trim().toLowerCase().replace(/[\s-]+/g, "_");
   return STATUS_CONFIG[key] || {
     label: status || "Unknown",
-    bg: "#8b97a8",
-    fg: "#ffffff",
+    bg: "#94a3b8",
+    fg: "#0b111a",
   };
 }
 
@@ -293,7 +293,7 @@ function LineDetailModal({ lineId, line, onClose }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="line-modal-title"
-        style={{ "--status-color": cfg.bg }}
+        style={{ "--status-color": cfg.bg, "--status-fg": cfg.fg }}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="line-modal-head">
