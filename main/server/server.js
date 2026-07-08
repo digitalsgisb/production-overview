@@ -102,9 +102,12 @@ function normalizeLineMode(mode) {
         run: "normal",
         running: "normal",
         normal: "normal",
+        loading: "loading",
+        delay: "delay",
         rest: "rest",
         downtime: "downtime",
         down: "downtime",
+        planned: "planned_stop",
         planned_stop: "planned_stop",
         maintenance: "planned_stop",
         model_change: "model_change",
@@ -113,6 +116,34 @@ function normalizeLineMode(mode) {
     };
 
     return modeMap[key] || key;
+}
+
+function normalizeMachineStatus(status) {
+    const statusMap = {
+        0: "normal",
+        1: "loading",
+        2: "delay",
+        3: "rest",
+        4: "downtime",
+        5: "planned_stop",
+        6: "model_change",
+    };
+    const numericStatus = Number(status);
+
+    if (Number.isFinite(numericStatus) && statusMap[numericStatus] !== undefined) {
+        return statusMap[numericStatus];
+    }
+
+    return normalizeLineMode(status);
+}
+
+function calculateOeeFromComponents(oee, availability, performance, quality) {
+    if (oee !== null && oee > 0) return oee;
+    if (availability !== null && performance !== null && quality !== null) {
+        return (availability * performance * quality) / 10000;
+    }
+
+    return oee;
 }
 // async function testConnection() {
 //     try {
@@ -304,14 +335,27 @@ app.post('/start-session-', async (req, res) => {
 app.post('/update_product_count', async (req, res) => {
     const data = req.body;
     const line_id = data.line_id;
-    const productCount = Number(data.product_count) || 0;
+    const productCount = Number(data.product_count ?? data.total_product_count) || 0;
     const hasMetric = (key) => data[key] !== undefined && data[key] !== null && data[key] !== "";
-    const oee = hasMetric("oee") ? Number(data.oee) || 0 : null;
+    const oeeInput = hasMetric("oee") || hasMetric("oee_pct")
+        ? Number(data.oee ?? data.oee_pct) || 0
+        : null;
     const availability_pct = hasMetric("availability_pct") || hasMetric("availability_pctm")
         ? Number(data.availability_pct ?? data.availability_pctm) || 0
         : null;
     const quality_pct = hasMetric("quality_pct") ? Number(data.quality_pct) || 0 : null;
     const performance_pct = hasMetric("performance_pct") ? Number(data.performance_pct) || 0 : null;
+    const hourly_plan = hasMetric("hourly_plan") ? Number(data.hourly_plan) || 0 : null;
+    const hourly_output = hasMetric("hourly_output") ? Number(data.hourly_output) || 0 : null;
+    const live_plan = hasMetric("live_plan") ? Number(data.live_plan) || 0 : null;
+    const full_hour_plan = hasMetric("full_hour_plan") ? Number(data.full_hour_plan) || 0 : null;
+    const mode = hasMetric("machine_status")
+        ? normalizeMachineStatus(data.machine_status)
+        : hasMetric("current_mode")
+            ? normalizeLineMode(data.current_mode)
+            : hasMetric("mode")
+                ? normalizeLineMode(data.mode)
+                : null;
 
     const line = productionLines.get(line_id);
 
@@ -326,6 +370,11 @@ app.post('/update_product_count', async (req, res) => {
     }
 
     try {
+        const effectiveAvailability = availability_pct !== null ? availability_pct : Number(line.availability_pct) || 0;
+        const effectivePerformance = performance_pct !== null ? performance_pct : Number(line.performance_pct) || 0;
+        const effectiveQuality = quality_pct !== null ? quality_pct : Number(line.quality_pct) || 0;
+        const oee = calculateOeeFromComponents(oeeInput, effectiveAvailability, effectivePerformance, effectiveQuality);
+
         await pool.query(
             `
             UPDATE session
@@ -340,6 +389,10 @@ app.post('/update_product_count', async (req, res) => {
             [productCount, oee, availability_pct, quality_pct, performance_pct, session_id]
         );
 
+        if (mode !== null) {
+            await updateMode(mode, session_id);
+        }
+
         line.product_count = productCount;
         if (oee !== null) line.oee = oee;
         if (availability_pct !== null) {
@@ -348,9 +401,27 @@ app.post('/update_product_count', async (req, res) => {
         }
         if (quality_pct !== null) line.quality_pct = quality_pct;
         if (performance_pct !== null) line.performance_pct = performance_pct;
+        if (hourly_plan !== null) {
+            line.hourly_plan = hourly_plan;
+            line.target = hourly_plan;
+        }
+        if (hourly_output !== null) line.hourly_output = hourly_output;
+        if (live_plan !== null) line.live_plan = live_plan;
+        if (full_hour_plan !== null) line.full_hour_plan = full_hour_plan;
+        if (mode !== null) {
+            line.mode = mode;
+            line.machine_mode = mode;
+        }
 
         emitLineChanges(line_id, {
             product_count: line.product_count,
+            hourly_output: line.hourly_output,
+            hourly_plan: line.hourly_plan,
+            target: line.hourly_plan,
+            live_plan: line.live_plan,
+            full_hour_plan: line.full_hour_plan,
+            mode: line.mode,
+            machine_mode: line.machine_mode,
             oee: line.oee,
             availability_pct: line.availability_pct,
             availability_pctm: line.availability_pctm,
@@ -368,7 +439,9 @@ app.post('/oee_update', async (req,res) => {
     const data = req.body;
     const line_id = data.line_id;
     const hasMetric = (key) => data[key] !== undefined && data[key] !== null && data[key] !== "";
-    const oee = hasMetric("oee") ? Number(data.oee) || 0 : null;
+    const oeeInput = hasMetric("oee") || hasMetric("oee_pct")
+        ? Number(data.oee ?? data.oee_pct) || 0
+        : null;
     const quality_pct = hasMetric("quality_pct") ? Number(data.quality_pct) || 0 : null;
     const performance_pct = hasMetric("performance_pct") ? Number(data.performance_pct) || 0 : null;
     const availability_pct = hasMetric("availability_pct") || hasMetric("availability_pctm")
@@ -388,6 +461,11 @@ app.post('/oee_update', async (req,res) => {
     }
 
     try {
+        const effectiveAvailability = availability_pct !== null ? availability_pct : Number(line.availability_pct) || 0;
+        const effectivePerformance = performance_pct !== null ? performance_pct : Number(line.performance_pct) || 0;
+        const effectiveQuality = quality_pct !== null ? quality_pct : Number(line.quality_pct) || 0;
+        const oee = calculateOeeFromComponents(oeeInput, effectiveAvailability, effectivePerformance, effectiveQuality);
+
         await pool.query(
             `
             UPDATE session

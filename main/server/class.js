@@ -24,6 +24,9 @@ class ProductionLine{
         this.availability_pctm=0;
         this.quality_pct=0;
         this.hourly_plan= 0;
+        this.target=0;
+        this.live_plan=0;
+        this.full_hour_plan=0;
     }
     insertIntoLine(a,b,i,j,k,l,m,n,o,p,q,r){
         this.session_id = a
@@ -81,6 +84,9 @@ class ProductionLine{
         this.availability_pctm=0;
         this.quality_pct=0;
         this.hourly_plan=0;
+        this.target=0;
+        this.live_plan=0;
+        this.full_hour_plan=0;
     }
 }
 

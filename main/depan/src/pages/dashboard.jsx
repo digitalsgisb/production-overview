@@ -147,7 +147,7 @@ function getLineOee(line) {
   const quality = getNumber(getLineMetric(line, ["quality_pct"]));
 
   if (availability > 0 || performance > 0 || quality > 0) {
-    return Math.round((availability * performance * quality) / 10000);
+    return (availability * performance * quality) / 10000;
   }
 
   return 0;
@@ -162,6 +162,8 @@ function formatPercent(value) {
  const STATUS_CONFIG = {
     normal: { label: "Running", bg: "#1fcb6b", fg: "#06210f", pulse: true },
     running: { label: "Running", bg: "#1fcb6b", fg: "#06210f", pulse: true },
+    loading: { label: "Loading", bg: "#4c9ffe", fg: "#ffffff", pulse: false },
+    delay: { label: "Delay", bg: "#f2a93b", fg: "#2a1b02", pulse: false },
     rest: { label: "Rest", bg: "#f2a93b", fg: "#ffffff", pulse: false },
     downtime: { label: "Downtime", bg: "#f00020", fg: "#ffffff", pulse: false },
     down: { label: "Downtime", bg: "#f00020", fg: "#ffffff", pulse: false },
