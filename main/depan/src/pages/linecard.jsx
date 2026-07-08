@@ -12,15 +12,15 @@ const STATUS_CONFIG = {
     maintenance: { label: "Planned Stop", bg: "#ea5f7b", fg: "#ffffff" },
     idle: { label: "Idle", bg: "#f3b64d", fg: "#1b1203" },
     model_change: { label: "Model Change", bg: "#4ea1ff", fg: "#05111f" },
-    offline: { label: "Offline", bg: "#94a3b8", fg: "#0b111a" },
+    offline: { label: "Offline", bg: "#596677", fg: "#ffffff" },
   };//planned_stop(light_red),normal(running),model_change(biru),downtime(red),rest(kuning)
 
   function getStatusConfig(status) {
     const key = String(status || "offline").trim().toLowerCase().replace(/[\s-]+/g, "_");
     return STATUS_CONFIG[key] || {
       label: status || "Unknown",
-      bg: "#94a3b8",
-      fg: "#0b111a",
+      bg: "#596677",
+      fg: "#ffffff",
     };
   }
 
@@ -84,7 +84,6 @@ const STATUS_CONFIG = {
         onClick={() => onSelectLine(lineId)}
         aria-label={`Open ${line?.line_id ?? lineId} details`}
       >
-        <span className="line-card__shine" aria-hidden="true"></span>
         <div className="line-card__body">
           <div className="line-card__top">
             <div>
@@ -103,7 +102,6 @@ const STATUS_CONFIG = {
           </div>
 
           <div className="status-panel">
-            <span className="status-panel__label">Mode</span>
             <span className="status-panel__value">{cfg.label}</span>
           </div>
 
