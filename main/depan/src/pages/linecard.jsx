@@ -58,7 +58,7 @@ const STATUS_CONFIG = {
   }
 
   function LineCard({ lineId, line, onSelectLine }) {
-    const status = getLineValue(line, ["status", "mode", "machine_mode"], "offline");
+    const status = getLineValue(line, ["machine_mode", "mode", "status"], "offline");
     const count = toNumber(getLineValue(line, ["product_count", "count"], 0));
     const target = toNumber(getLineValue(line, ["target", "hourly_plan"], 0));
     const reject = toNumber(getLineValue(line, ["product_reject", "reject"], 0));

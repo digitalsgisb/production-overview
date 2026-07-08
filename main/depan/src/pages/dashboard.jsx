@@ -268,7 +268,7 @@ function LineDetailModal({ lineId, line, onClose }) {
 
   if (!lineId) return null;
 
-  const status = getLineValue(line, ["status", "mode", "machine_mode"], "offline");
+  const status = getLineValue(line, ["machine_mode", "mode", "status"], "offline");
   const count = getNumber(getLineMetric(line, ["product_count", "count"]));
   const target = getNumber(getLineMetric(line, ["target", "hourly_plan"]));
   const reject = getNumber(getLineMetric(line, ["product_reject", "reject"]));
@@ -520,7 +520,7 @@ function createFallbackLine(lineId) {
 function ProductionSection({ title, lineIds, lines, onSelectLine }) {
   const sectionLines = lineIds.map((lineId) => lines[lineId] ?? createFallbackLine(lineId));
   const runningCount = sectionLines.filter((line) => {
-    const status = String(getLineValue(line, ["status", "mode", "machine_mode"], "offline"))
+    const status = String(getLineValue(line, ["machine_mode", "mode", "status"], "offline"))
       .trim()
       .toLowerCase()
       .replace(/[\s-]+/g, "_");
