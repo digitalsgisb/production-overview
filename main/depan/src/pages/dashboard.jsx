@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import LineCard from "./linecard.jsx";
 import "./dashboard.css";
@@ -12,6 +12,7 @@ const SOCKET_URL =
 const PORT_KLANG_LINES = ["ABB4", "ABB7", "ABB2"];
 const SENDAYAN_LINES = ["SDY1", "SDY2"];
 const ALL_LINE_IDS = [...PORT_KLANG_LINES, ...SENDAYAN_LINES];
+const HISTORY_LIMIT = 28;
 const LINE_DOCUMENTATION_URLS = {
   ABB4: "https://abb4grafana.sugidigital.org/d/fe9tzft54x1xcf/abb4-smart-dashboard?orgId=1&from=now-5m&to=now&timezone=browser&refresh=5s",
   ABB7: "https://abb7grafana.sugidigital.org/",
@@ -210,6 +211,117 @@ function getStatusConfig(status) {
 function formatCompact(value) {
   if (value >= 1000) return `${Number(value / 1000).toFixed(value >= 10000 ? 0 : 1)}k`;
   return String(value);
+}
+
+function clampPercent(value) {
+  return Math.max(0, Math.min(100, getNumber(value)));
+}
+
+function getLineComponents(line) {
+  return {
+    availability: clampPercent(getLineMetric(line, ["availability_pct", "availability_pctm"])),
+    performance: clampPercent(getLineMetric(line, ["performance_pct"])),
+    quality: clampPercent(getLineMetric(line, ["quality_pct"])),
+  };
+}
+
+function getAverageComponents(lines) {
+  if (lines.length === 0) {
+    return { availability: 0, performance: 0, quality: 0 };
+  }
+
+  const totals = lines.reduce(
+    (sum, line) => {
+      const components = getLineComponents(line);
+      return {
+        availability: sum.availability + components.availability,
+        performance: sum.performance + components.performance,
+        quality: sum.quality + components.quality,
+      };
+    },
+    { availability: 0, performance: 0, quality: 0 },
+  );
+
+  return {
+    availability: totals.availability / lines.length,
+    performance: totals.performance / lines.length,
+    quality: totals.quality / lines.length,
+  };
+}
+
+function createFlatHistory(value, time = Date.now()) {
+  const safeValue = clampPercent(value);
+  return Array.from({ length: 8 }, (_, index) => ({
+    time: time - (8 - index) * 3000,
+    value: safeValue,
+  }));
+}
+
+function appendHistoryPoint(series = [], value, time = Date.now()) {
+  const base = series.length > 0 ? series : createFlatHistory(value, time);
+  return [...base, { time, value: clampPercent(value) }].slice(-HISTORY_LIMIT);
+}
+
+function appendTelemetryHistory(previous, sample) {
+  const time = Date.now();
+  const nextLines = ALL_LINE_IDS.reduce((acc, lineId) => {
+    acc[lineId] = appendHistoryPoint(previous.lines?.[lineId], sample.lines[lineId] ?? 0, time);
+    return acc;
+  }, {});
+
+  return {
+    overall: appendHistoryPoint(previous.overall, sample.overall, time),
+    lines: nextLines,
+  };
+}
+
+function getTrendMeta(points = []) {
+  if (points.length === 0) {
+    return { current: 0, delta: 0, max: 0, min: 0 };
+  }
+
+  const values = points.map((point) => clampPercent(point.value));
+  const current = values[values.length - 1];
+  const previous = values.length > 1 ? values[values.length - 2] : current;
+
+  return {
+    current,
+    delta: current - previous,
+    max: Math.max(...values),
+    min: Math.min(...values),
+  };
+}
+
+function getTrendGeometry(points = [], width = 420, height = 174) {
+  const normalized = points.length > 0 ? points : createFlatHistory(0);
+  const top = 12;
+  const right = 12;
+  const bottom = 22;
+  const left = 16;
+  const plotWidth = width - left - right;
+  const plotHeight = height - top - bottom;
+  const xStep = normalized.length > 1 ? plotWidth / (normalized.length - 1) : 0;
+
+  const coordinates = normalized.map((point, index) => {
+    const x = left + index * xStep;
+    const y = top + ((100 - clampPercent(point.value)) / 100) * plotHeight;
+    return { x, y, value: clampPercent(point.value) };
+  });
+
+  const linePath = coordinates.map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(" ");
+  const first = coordinates[0];
+  const last = coordinates[coordinates.length - 1];
+  const areaPath = `${linePath} L${last.x.toFixed(2)} ${height - bottom} L${first.x.toFixed(2)} ${height - bottom} Z`;
+
+  return {
+    areaPath,
+    coordinates,
+    grid: [25, 50, 75].map((value) => top + ((100 - value) / 100) * plotHeight),
+    height,
+    last,
+    linePath,
+    width,
+  };
 }
 
 function normalizeNames(value) {
@@ -614,49 +726,68 @@ function getLineSnapshot(line) {
   };
 }
 
-function MiniTrend({ tone = "neutral" }) {
+function LiveTrendChart({ points, className = "", tone = "violet", compact = false }) {
+  const geometry = getTrendGeometry(points, compact ? 320 : 480, compact ? 148 : 210);
+
   return (
-    <svg className={`mini-trend mini-trend--${tone}`} viewBox="0 0 180 68" aria-hidden="true">
-      <path className="mini-trend__grid" d="M0 46H180M0 24H180"></path>
-      <path className="mini-trend__ghost" d="M0 52C20 42 32 44 46 51C64 60 78 61 96 43C111 28 125 24 144 32C158 38 168 31 180 18"></path>
-      <path className="mini-trend__line" d="M0 54C18 39 30 43 44 49C62 57 74 54 91 39C108 24 124 26 140 35C157 45 168 33 180 21"></path>
-      <circle className="mini-trend__dot" cx="142" cy="35" r="3.5"></circle>
-      <circle className="mini-trend__dot" cx="180" cy="21" r="3.5"></circle>
+    <svg
+      className={`live-trend live-trend--${tone} ${compact ? "live-trend--compact" : ""} ${className}`}
+      viewBox={`0 0 ${geometry.width} ${geometry.height}`}
+      role="img"
+      aria-label="OEE trend over time"
+      preserveAspectRatio="none"
+    >
+      <defs>
+        <linearGradient id={`trendFill-${tone}-${compact ? "compact" : "wide"}`} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="currentColor" stopOpacity="0.24" />
+          <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {geometry.grid.map((y) => (
+        <path className="live-trend__grid" d={`M16 ${y.toFixed(2)}H${geometry.width - 12}`} key={y} />
+      ))}
+      <path className="live-trend__area" d={geometry.areaPath} fill={`url(#trendFill-${tone}-${compact ? "compact" : "wide"})`} />
+      <path className="live-trend__line" d={geometry.linePath} />
+      <circle className="live-trend__pulse" cx={geometry.last.x} cy={geometry.last.y} r={compact ? 6 : 7} />
+      <circle className="live-trend__dot" cx={geometry.last.x} cy={geometry.last.y} r={compact ? 3.4 : 4.2} />
     </svg>
   );
 }
 
-function CompactLineCard({ lineId, line, onSelectLine, tone = "neutral" }) {
-  const snapshot = getLineSnapshot(line);
+function LiveFocusPanel({ history, totalSummary, sites }) {
+  const meta = getTrendMeta(history.overall);
+  const deltaLabel = `${meta.delta >= 0 ? "+" : ""}${formatPercent(meta.delta)}%`;
 
   return (
-    <button
-      className="compact-line-card"
-      type="button"
-      style={{ "--status-color": snapshot.cfg.bg, "--status-fg": snapshot.cfg.fg }}
-      onClick={() => onSelectLine(lineId)}
-      aria-label={`Open ${line?.line_id ?? lineId} details`}
-    >
-      <div className="compact-line-card__top">
-        <span className="compact-line-card__icon">{lineId.slice(-1)}</span>
+    <section className="live-focus-panel">
+      <div className="live-focus-panel__header">
         <div>
-          <small>{snapshot.cfg.label}</small>
-          <strong>{line?.line_id ?? lineId}</strong>
+          <p>Overall OEE vs Time</p>
+          <h2>Live OEE Movement</h2>
         </div>
-        <span className="compact-line-card__open" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M7 17 17 7"></path>
-            <path d="M8 7h9v9"></path>
-          </svg>
-        </span>
+        <div className="live-focus-panel__now">
+          <span>Live</span>
+          <strong>{formatPercent(totalSummary.oee)}%</strong>
+        </div>
       </div>
-      <div className="compact-line-card__metric">
-        <span>OEE</span>
-        <strong>{formatPercent(snapshot.oee)}%</strong>
-        <small>{snapshot.progress}% target progress</small>
+      <LiveTrendChart points={history.overall} className="live-focus-panel__chart" />
+      <div className="live-focus-panel__stats" aria-label="OEE trend statistics">
+        <span>Min <strong>{formatPercent(meta.min)}%</strong></span>
+        <span>Max <strong>{formatPercent(meta.max)}%</strong></span>
+        <span className={meta.delta < 0 ? "is-negative" : "is-positive"}>Delta <strong>{deltaLabel}</strong></span>
       </div>
-      <MiniTrend tone={tone} />
-    </button>
+      <div className="live-focus-panel__sites">
+        {sites.map((site) => (
+          <div className="live-site-pill" key={site.key}>
+            <span>{site.name}</span>
+            <strong>{site.oee}%</strong>
+            <div className="live-site-pill__track">
+              <i style={{ width: `${site.oee}%` }}></i>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -775,33 +906,61 @@ function MobileHero({ displayName, totalSummary, sites }) {
   );
 }
 
-function MobileMetricDeck({ totalSummary }) {
+function MobileMetricDeck({ totalSummary, history }) {
+  const meta = getTrendMeta(history.overall);
+  const components = [
+    { key: "A", label: "Availability", value: totalSummary.components.availability },
+    { key: "P", label: "Performance", value: totalSummary.components.performance },
+    { key: "Q", label: "Quality", value: totalSummary.components.quality },
+  ];
+
   return (
     <section className="mobile-metric-deck" aria-label="Mobile production overview">
       <div className="mobile-score-card">
-        <span>OEE Score</span>
-        <strong>{totalSummary.oee}%</strong>
-        <div className="dot-matrix" aria-hidden="true">
-          {Array.from({ length: 28 }).map((_, index) => (
-            <span className={index < Math.round((totalSummary.oee / 100) * 28) ? "is-lit" : ""} key={index}></span>
-          ))}
+        <div className="mobile-card-head">
+          <span>OEE vs Time</span>
+          <small>Live</small>
+        </div>
+        <strong>{formatPercent(totalSummary.oee)}%</strong>
+        <LiveTrendChart points={history.overall} compact className="mobile-oee-chart" />
+        <div className="mobile-chart-meta">
+          <span>Min {formatPercent(meta.min)}%</span>
+          <span>Max {formatPercent(meta.max)}%</span>
         </div>
       </div>
       <div className="mobile-output-card">
-        <span>Output</span>
+        <div className="mobile-card-head">
+          <span>Output</span>
+          <small>{totalSummary.progress}%</small>
+        </div>
         <strong>{totalSummary.actual.toLocaleString()}</strong>
         <small>{totalSummary.progress}% target</small>
-        <div className="mini-bars" aria-hidden="true">
-          <span></span>
-          <span></span>
-          <span></span>
-          <span></span>
+        <div className="mobile-progress-track" aria-hidden="true">
+          <i style={{ width: `${totalSummary.progress}%` }}></i>
         </div>
       </div>
       <div className="mobile-ring-card">
-        <span>Quality Balance</span>
-        <strong>{totalSummary.rejects}</strong>
-        <small>reject</small>
+        <div className="mobile-card-head">
+          <span>APQ Components</span>
+          <small>OEE</small>
+        </div>
+        <div className="mobile-apq-layout">
+          <div className="mobile-oee-ring" style={{ "--oee-angle": `${clampPercent(totalSummary.oee) * 3.6}deg` }}>
+            <strong>{formatPercent(totalSummary.oee)}%</strong>
+            <small>OEE</small>
+          </div>
+          <div className="mobile-apq-list">
+            {components.map((component) => (
+              <div className="mobile-apq-row" key={component.key}>
+                <span>{component.key}</span>
+                <div>
+                  <strong>{formatPercent(component.value)}%</strong>
+                  <i><b style={{ width: `${clampPercent(component.value)}%` }}></b></i>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -822,6 +981,7 @@ function Dashboard({ user, onLogout }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [selectedLineId, setSelectedLineId] = useState(null);
+  const [telemetryHistory, setTelemetryHistory] = useState({ overall: [], lines: {} });
 
   const seededLines = useMemo(() => {
     return ALL_LINE_IDS.reduce((acc, lineId) => {
@@ -854,13 +1014,43 @@ function Dashboard({ user, onLogout }) {
     const actual = allLines.reduce((sum, line) => sum + getNumber(getLineMetric(line, ["product_count", "count"])), 0);
     const target = allLines.reduce((sum, line) => sum + getNumber(getLineMetric(line, ["target", "hourly_plan"])), 0);
     const rejects = allLines.reduce((sum, line) => sum + getNumber(getLineMetric(line, ["product_reject", "reject"])), 0);
+    const components = getAverageComponents(allLines);
     const oee = allLines.length > 0
       ? Math.round(allLines.reduce((sum, line) => sum + getLineOee(line), 0) / allLines.length)
       : 0;
     const progress = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 0;
 
-    return { actual, target, rejects, oee, progress, lineCount: allLines.length };
+    return { actual, components, target, rejects, oee, progress, lineCount: allLines.length };
   }, [seededLines]);
+
+  const telemetrySample = useMemo(() => {
+    return {
+      overall: totalSummary.oee,
+      lines: ALL_LINE_IDS.reduce((acc, lineId) => {
+        acc[lineId] = getLineOee(seededLines[lineId] ?? createFallbackLine(lineId));
+        return acc;
+      }, {}),
+    };
+  }, [seededLines, totalSummary.oee]);
+
+  const telemetrySampleRef = useRef(telemetrySample);
+
+  useEffect(() => {
+    telemetrySampleRef.current = telemetrySample;
+  }, [telemetrySample]);
+
+  useEffect(() => {
+    const sampleTelemetry = () => {
+      setTelemetryHistory((previous) => appendTelemetryHistory(previous, telemetrySampleRef.current));
+    };
+    const initialTimer = window.setTimeout(sampleTelemetry, 0);
+    const timer = window.setInterval(sampleTelemetry, 3000);
+
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(timer);
+    };
+  }, []);
 
   const displayName = user?.name || user?.email || "User";
   const focusLineId = useMemo(() => {
@@ -998,11 +1188,11 @@ function Dashboard({ user, onLogout }) {
         {activePage === "progress" && (
           <>
             <MobileHero displayName={displayName} totalSummary={totalSummary} sites={siteSummaries} />
-            <MobileMetricDeck totalSummary={totalSummary} />
+            <MobileMetricDeck totalSummary={totalSummary} history={telemetryHistory} />
 
             <section className="dashboard-title-row">
               <div>
-                <p className="dashboard-eyebrow">Recommended lines for live focus</p>
+                <p className="dashboard-eyebrow">Live OEE timeline</p>
                 <h1>Production Line Overview</h1>
               </div>
               <div className="dashboard-filter-row" aria-label="Dashboard filters">
@@ -1014,17 +1204,7 @@ function Dashboard({ user, onLogout }) {
 
             <section className="command-grid">
               <div className="command-main">
-                <div className="compact-line-grid">
-                  {PORT_KLANG_LINES.map((lineId, index) => (
-                    <CompactLineCard
-                      key={lineId}
-                      lineId={lineId}
-                      line={seededLines[lineId]}
-                      tone={index === 2 ? "danger" : "neutral"}
-                      onSelectLine={setSelectedLineId}
-                    />
-                  ))}
-                </div>
+                <LiveFocusPanel history={telemetryHistory} totalSummary={totalSummary} sites={siteSummaries} />
               </div>
               <PortfolioPanel sites={siteSummaries} totalSummary={totalSummary} />
             </section>
