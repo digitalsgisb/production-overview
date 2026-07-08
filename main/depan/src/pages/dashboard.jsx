@@ -160,27 +160,26 @@ function formatPercent(value) {
 }
 
  const STATUS_CONFIG = {
-    normal: { label: "Running", bg: "#1fcb6b", fg: "#06210f", pulse: true },
-    running: { label: "Running", bg: "#1fcb6b", fg: "#06210f", pulse: true },
-    loading: { label: "Loading", bg: "#4c9ffe", fg: "#ffffff", pulse: false },
-    delay: { label: "Delay", bg: "#f2a93b", fg: "#2a1b02", pulse: false },
-    rest: { label: "Rest", bg: "#f2a93b", fg: "#ffffff", pulse: false },
-    downtime: { label: "Downtime", bg: "#f00020", fg: "#ffffff", pulse: false },
-    down: { label: "Downtime", bg: "#f00020", fg: "#ffffff", pulse: false },
-    planned_stop: { label: "Planned Stop", bg: "#e06172", fg: "#ffffff", pulse: false },
-    maintenance: { label: "Planned Stop", bg: "#e06172", fg: "#ffffff", pulse: false },
-    idle: { label: "Idle", bg: "#f2a93b", fg: "#2a1b02", pulse: false },
-    model_change: { label: "Model Change", bg: "#4c9ffe", fg: "#ffffff", pulse: false },
-    offline: { label: "Offline", bg: "#4b5563", fg: "#ffffff", pulse: false },
+    normal: { label: "Running", bg: "#cbd5e1", fg: "#0f172a" },
+    running: { label: "Running", bg: "#cbd5e1", fg: "#0f172a" },
+    loading: { label: "Loading", bg: "#9fb8d8", fg: "#0f172a" },
+    delay: { label: "Delay", bg: "#d4b36f", fg: "#18130a" },
+    rest: { label: "Rest", bg: "#d4b36f", fg: "#18130a" },
+    downtime: { label: "Downtime", bg: "#c46b78", fg: "#ffffff" },
+    down: { label: "Downtime", bg: "#c46b78", fg: "#ffffff" },
+    planned_stop: { label: "Planned Stop", bg: "#c46b78", fg: "#ffffff" },
+    maintenance: { label: "Planned Stop", bg: "#c46b78", fg: "#ffffff" },
+    idle: { label: "Idle", bg: "#d4b36f", fg: "#18130a" },
+    model_change: { label: "Model Change", bg: "#9fb8d8", fg: "#0f172a" },
+    offline: { label: "Offline", bg: "#8b97a8", fg: "#ffffff" },
   };//planned_stop(light_red),normal(running),model_change(biru),downtime(red),rest(kuning)
 
 function getStatusConfig(status) {
   const key = String(status || "offline").trim().toLowerCase().replace(/[\s-]+/g, "_");
   return STATUS_CONFIG[key] || {
     label: status || "Unknown",
-    bg: "#4b5563",
+    bg: "#8b97a8",
     fg: "#ffffff",
-    pulse: false,
   };
 }
 
@@ -327,13 +326,13 @@ function LineDetailModal({ lineId, line, onClose }) {
             </div>
           </div>
 
-          <div className="status-bar" data-pulse={cfg.pulse} style={{ background: cfg.bg, color: cfg.fg }}>
-            <span className="status-dot"></span>
-            {cfg.label}
+          <div className="status-panel">
+            <span className="status-panel__label">Mode</span>
+            <span className="status-panel__value">{cfg.label}</span>
           </div>
 
           <div className="modal-model-row">
-            <span className="stat-label">Model</span>
+            <span className="stat-label">Current Model</span>
             <span className="stat-value">{getLineValue(line, ["model"], "-")}</span>
           </div>
 
@@ -578,7 +577,6 @@ function PlaceholderPage({ title }) {
 
 function Dashboard({ user, onLogout }) {
   const [lines, setLines] = useState({});
-  const [socketState, setSocketState] = useState("connecting");
   const [activePage, setActivePage] = useState("progress");
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -627,16 +625,7 @@ function Dashboard({ user, onLogout }) {
     const socket = io(SOCKET_URL);
 
     socket.on("connect", () => {
-      setSocketState("connected");
       ALL_LINE_IDS.forEach((lineId) => socket.emit("join-line", lineId));
-    });
-
-    socket.on("connect_error", () => {
-      setSocketState("offline");
-    });
-
-    socket.on("disconnect", () => {
-      setSocketState("offline");
     });
 
     socket.on("line:data", (data) => {
@@ -711,10 +700,6 @@ function Dashboard({ user, onLogout }) {
             <time className="header-time" dateTime={new Date().toISOString()}>
               {new Date().toLocaleDateString("en-MY", { day: "2-digit", month: "short", year: "numeric" })}
             </time>
-            <div className={`connection-pill ${socketState}`}>
-              <span></span>
-              {socketState}
-            </div>
           </div>
         </header>
 
@@ -738,12 +723,6 @@ function Dashboard({ user, onLogout }) {
                 value={totalSummary.rejects.toLocaleString()}
                 detail="Across active sessions"
                 tone={totalSummary.rejects > 0 ? "reject" : "stable"}
-              />
-              <SummaryCard
-                label="Socket"
-                value={socketState}
-                detail="Backend WebSocket state"
-                tone={socketState === "connected" ? "stable" : "reject"}
               />
             </section>
 

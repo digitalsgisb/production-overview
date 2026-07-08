@@ -1,27 +1,26 @@
 import { memo } from "react";
 
 const STATUS_CONFIG = {
-    normal: { label: "Running", bg: "#1fcb6b", fg: "#06210f", pulse: true },
-    running: { label: "Running", bg: "#1fcb6b", fg: "#06210f", pulse: true },
-    loading: { label: "Loading", bg: "#4c9ffe", fg: "#ffffff", pulse: false },
-    delay: { label: "Delay", bg: "#f2a93b", fg: "#2a1b02", pulse: false },
-    rest: { label: "Rest", bg: "#f2a93b", fg: "#ffffff", pulse: false },
-    downtime: { label: "Downtime", bg: "#f00020", fg: "#ffffff", pulse: false },
-    down: { label: "Downtime", bg: "#f00020", fg: "#ffffff", pulse: false },
-    planned_stop: { label: "Planned Stop", bg: "#e06172", fg: "#ffffff", pulse: false },
-    maintenance: { label: "Planned Stop", bg: "#e06172", fg: "#ffffff", pulse: false },
-    idle: { label: "Idle", bg: "#f2a93b", fg: "#2a1b02", pulse: false },
-    model_change: { label: "Model Change", bg: "#4c9ffe", fg: "#ffffff", pulse: false },
-    offline: { label: "Offline", bg: "#4b5563", fg: "#ffffff", pulse: false },
+    normal: { label: "Running", bg: "#cbd5e1", fg: "#0f172a" },
+    running: { label: "Running", bg: "#cbd5e1", fg: "#0f172a" },
+    loading: { label: "Loading", bg: "#9fb8d8", fg: "#0f172a" },
+    delay: { label: "Delay", bg: "#d4b36f", fg: "#18130a" },
+    rest: { label: "Rest", bg: "#d4b36f", fg: "#18130a" },
+    downtime: { label: "Downtime", bg: "#c46b78", fg: "#ffffff" },
+    down: { label: "Downtime", bg: "#c46b78", fg: "#ffffff" },
+    planned_stop: { label: "Planned Stop", bg: "#c46b78", fg: "#ffffff" },
+    maintenance: { label: "Planned Stop", bg: "#c46b78", fg: "#ffffff" },
+    idle: { label: "Idle", bg: "#d4b36f", fg: "#18130a" },
+    model_change: { label: "Model Change", bg: "#9fb8d8", fg: "#0f172a" },
+    offline: { label: "Offline", bg: "#8b97a8", fg: "#ffffff" },
   };//planned_stop(light_red),normal(running),model_change(biru),downtime(red),rest(kuning)
 
   function getStatusConfig(status) {
     const key = String(status || "offline").trim().toLowerCase().replace(/[\s-]+/g, "_");
     return STATUS_CONFIG[key] || {
       label: status || "Unknown",
-      bg: "#4b5563",
+      bg: "#8b97a8",
       fg: "#ffffff",
-      pulse: false,
     };
   }
 
@@ -52,9 +51,9 @@ const STATUS_CONFIG = {
   }
 
   function getOeeColor(oee) {
-    if (oee >= 80) return "#1fcb6b";
-    if (oee >= 30) return "#f2a93b";
-    return "#f00020";
+    if (oee >= 80) return "#cbd5e1";
+    if (oee >= 30) return "#d4b36f";
+    return "#c46b78";
   }
 
   function LineCard({ lineId, line, onSelectLine }) {
@@ -91,7 +90,6 @@ const STATUS_CONFIG = {
             <div>
               <span className="line-id-label">Line</span>
               <span className="line-id-value">{line?.line_id ?? lineId}</span>
-              <span className="line-model">{model}</span>
             </div>
             <div className="oee-ring" data-value-size={oeeDisplay.length > 3 ? "compact" : "normal"} aria-label={`OEE ${oeeDisplay}%`}>
               <span className="oee-value" key={oeeDisplay}>{oeeDisplay}%</span>
@@ -99,13 +97,14 @@ const STATUS_CONFIG = {
             </div>
           </div>
 
-          <div
-            className="status-bar"
-            data-pulse={cfg.pulse}
-            style={{ background: cfg.bg, color: cfg.fg }}
-          >
-            <span className="status-dot"></span>
-            {cfg.label}
+          <div className="line-model-panel">
+            <span className="line-model-label">Current Model</span>
+            <span className="line-model-value">{model}</span>
+          </div>
+
+          <div className="status-panel">
+            <span className="status-panel__label">Mode</span>
+            <span className="status-panel__value">{cfg.label}</span>
           </div>
 
           <div className="progress-block">
