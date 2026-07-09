@@ -44,6 +44,15 @@ function createCurrentAdminUser(user) {
   };
 }
 
+function PersonIcon() {
+  return (
+    <svg className="person-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M20 21a8 8 0 0 0-16 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  );
+}
+
 function sanitizeAdminUser(record, index) {
   const fallbackName = `User ${index + 1}`;
   const name = String(record?.name || fallbackName).trim();
@@ -127,7 +136,7 @@ function Sidebar({ activePage, onSelectPage, onMenu, onLogout, isMobileNavOpen, 
         </div>
 
         <button className="sidebar-user" type="button" aria-label="Open profile summary" onClick={onMenu}>
-          <span className="sidebar-user__avatar">{displayName.charAt(0).toUpperCase()}</span>
+          <span className="sidebar-user__avatar"><PersonIcon /></span>
           <span className="sidebar-user__meta">
             <strong>{displayName}</strong>
             <small>Control room</small>
@@ -631,7 +640,6 @@ function LineDetailModal({ lineId, line, onClose }) {
 function ProfileCard({ isOpen, onClose, sites, user }) {
   const displayName = user?.name || user?.email || "User";
   const displayId = user?.id || user?.email || "Signed in";
-  const avatarLetter = displayName.charAt(0).toUpperCase();
 
   return (
     <>
@@ -644,7 +652,7 @@ function ProfileCard({ isOpen, onClose, sites, user }) {
         </button>
 
         <div className="profile-row">
-          <div className="profile-avatar">{avatarLetter}</div>
+          <div className="profile-avatar"><PersonIcon /></div>
           <div className="profile-info">
             <div className="profile-name">{displayName}</div>
             <div className="profile-id">{displayId}</div>
@@ -724,15 +732,6 @@ function ProfileCard({ isOpen, onClose, sites, user }) {
       <button className={`backdrop ${isOpen ? "is-visible" : ""}`} type="button" aria-label="Close profile card" onClick={onClose}></button>
     </>
   );
-}
-
-function getInitials(name) {
-  return String(name || "U")
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join("") || "U";
 }
 
 function AdminControlDrawer({
@@ -941,7 +940,7 @@ function AdminControlDrawer({
           {filteredUsers.map((adminUser) => (
             <article className="admin-user-row" key={adminUser.id}>
               <div className="admin-user-row__head">
-                <span className="admin-user-avatar">{getInitials(adminUser.name)}</span>
+                <span className="admin-user-avatar"><PersonIcon /></span>
                 <div className="admin-user-identity">
                   <strong>{adminUser.name}</strong>
                   <small>{adminUser.email}</small>
@@ -1166,9 +1165,9 @@ function PortfolioPanel({ sites, totalSummary }) {
       </div>
       <h2>Production Portfolio</h2>
       <p>Real-time output, OEE, and reject view across Port Klang and Sendayan.</p>
-      <div className="portfolio-panel__actions">
-        <button type="button">Overall {totalSummary.oee}% OEE</button>
-        <button type="button">{totalSummary.actual.toLocaleString()} Output</button>
+      <div className="portfolio-panel__metrics">
+        <span>Overall {totalSummary.oee}% OEE</span>
+        <span>{totalSummary.actual.toLocaleString()} Output</span>
       </div>
       <div className="portfolio-sites">
         {sites.map((site) => (
@@ -1212,8 +1211,8 @@ function ActiveLinePanel({ lineId, line, onSelectLine }) {
           <span className="active-line-panel__label">Current OEE</span>
           <strong className="active-line-panel__value">{formatPercent(snapshot.oee)}%</strong>
           <div className="active-line-actions">
-            <button type="button">Target {snapshot.target.toLocaleString()}</button>
-            <button type="button">Reject {snapshot.reject.toLocaleString()}</button>
+            <span>Target {snapshot.target.toLocaleString()}</span>
+            <span>Reject {snapshot.reject.toLocaleString()}</span>
           </div>
         </div>
         <div className="period-card">
@@ -1246,6 +1245,48 @@ function ActiveLinePanel({ lineId, line, onSelectLine }) {
         </div>
       </div>
     </section>
+  );
+}
+
+function MobileHeader({ activePage, adminOpen, displayName, onLiveShift, onOpenAdmin, onOpenProfile, totalSummary }) {
+  const sectionLabel = activePage === "progress"
+    ? "Live shift"
+    : activePage.charAt(0).toUpperCase() + activePage.slice(1);
+
+  return (
+    <header className="mobile-header" aria-label="Mobile dashboard header">
+      <button className="mobile-header__profile" type="button" aria-label="Open profile summary" onClick={onOpenProfile}>
+        <span className="mobile-header__avatar"><PersonIcon /></span>
+        <span className="mobile-header__identity">
+          <small>{displayName}</small>
+          <strong>Production</strong>
+        </span>
+      </button>
+
+      <button
+        className={`mobile-header__live ${activePage === "progress" ? "is-active" : ""}`}
+        type="button"
+        aria-label="Open live shift overview"
+        aria-pressed={activePage === "progress"}
+        onClick={onLiveShift}
+      >
+        <span className="mobile-header__dot" aria-hidden="true"></span>
+        <span>
+          <strong>{formatPercent(totalSummary.oee)}%</strong>
+          <small>{sectionLabel}</small>
+        </span>
+      </button>
+
+      <button
+        className={`mobile-header__icon ${adminOpen ? "is-active" : ""}`}
+        type="button"
+        aria-label="Admin users"
+        aria-pressed={adminOpen}
+        onClick={onOpenAdmin}
+      >
+        <PersonIcon />
+      </button>
+    </header>
   );
 }
 
@@ -1437,16 +1478,6 @@ function Dashboard({ user, onLogout }) {
 
     return runningLine || PORT_KLANG_LINES[0];
   }, [seededLines]);
-  const runningLineCount = useMemo(() => {
-    return ALL_LINE_IDS.filter((lineId) => {
-      const status = String(getLineValue(seededLines[lineId], ["machine_mode", "mode", "status"], "offline"))
-        .trim()
-        .toLowerCase()
-        .replace(/[\s-]+/g, "_");
-
-      return status === "normal" || status === "running";
-    }).length;
-  }, [seededLines]);
 
   useEffect(() => {
     const socket = io(SOCKET_URL);
@@ -1512,6 +1543,26 @@ function Dashboard({ user, onLogout }) {
     setAdminUsers((currentUsers) => currentUsers.filter((adminUser) => adminUser.id !== userId));
   }
 
+  function handleOpenProfile() {
+    setProfileOpen(true);
+    setAdminOpen(false);
+    setMobileNavOpen(false);
+  }
+
+  function handleToggleAdmin() {
+    setAdminOpen((open) => !open);
+    setProfileOpen(false);
+    setMobileNavOpen(false);
+  }
+
+  function handleLiveShift() {
+    setActivePage("progress");
+    setProfileOpen(false);
+    setAdminOpen(false);
+    setMobileNavOpen(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   return (
     <div className="app-shell">
       <Sidebar
@@ -1546,54 +1597,46 @@ function Dashboard({ user, onLogout }) {
         onClose={() => setSelectedLineId(null)}
       />
       <main className="dashboard-content">
+        <MobileHeader
+          activePage={activePage}
+          adminOpen={adminOpen}
+          displayName={displayName}
+          onLiveShift={handleLiveShift}
+          onOpenAdmin={handleToggleAdmin}
+          onOpenProfile={handleOpenProfile}
+          totalSummary={totalSummary}
+        />
+
         <header className="dashboard-topbar">
           <button
             className="user-chip"
             type="button"
             aria-label="Open profile summary"
-            onClick={() => {
-              setProfileOpen(true);
-              setAdminOpen(false);
-              setMobileNavOpen(false);
-            }}
+            onClick={handleOpenProfile}
           >
-            <span className="user-chip__avatar">{displayName.charAt(0).toUpperCase()}</span>
+            <span className="user-chip__avatar"><PersonIcon /></span>
             <span className="user-chip__text">
               <span>{displayName}</span>
               <small>Control room</small>
             </span>
           </button>
-          <button className="live-shift-btn" type="button">Live Shift</button>
+          <button
+            className={`live-shift-btn ${activePage === "progress" ? "is-active" : ""}`}
+            type="button"
+            aria-pressed={activePage === "progress"}
+            onClick={handleLiveShift}
+          >
+            Live Shift
+          </button>
           <div className="topbar-actions">
-            <button type="button" aria-label="Notifications">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 7h18s-3 0-3-7"></path>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-              </svg>
-              <span>{runningLineCount}</span>
-            </button>
-            <div className="search-pill" aria-label="Search">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8"></circle>
-                <path d="m21 21-4.35-4.35"></path>
-              </svg>
-              <span>Search...</span>
-            </div>
             <button
               className={adminOpen ? "is-active" : ""}
               type="button"
-              aria-label="Admin control"
+              aria-label="Admin users"
               aria-pressed={adminOpen}
-              onClick={() => {
-                setAdminOpen((open) => !open);
-                setProfileOpen(false);
-                setMobileNavOpen(false);
-              }}
+              onClick={handleToggleAdmin}
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.51a2 2 0 0 1 1-1.72l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z"></path>
-                <circle cx="12" cy="12" r="3"></circle>
-              </svg>
+              <PersonIcon />
             </button>
           </div>
         </header>
