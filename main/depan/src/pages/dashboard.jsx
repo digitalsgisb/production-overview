@@ -1249,16 +1249,14 @@ function ActiveLinePanel({ lineId, line, onSelectLine }) {
 }
 
 function MobileHeader({ activePage, adminOpen, displayName, onLiveShift, onOpenAdmin, onOpenProfile, totalSummary }) {
-  const sectionLabel = activePage === "progress"
-    ? "Live shift"
-    : activePage.charAt(0).toUpperCase() + activePage.slice(1);
-
   return (
     <header className="mobile-header" aria-label="Mobile dashboard header">
-      <button className="mobile-header__profile" type="button" aria-label="Open profile summary" onClick={onOpenProfile}>
-        <span className="mobile-header__avatar"><PersonIcon /></span>
+      <button className="mobile-header__profile" type="button" aria-label="Open profile summary" title={displayName} onClick={onOpenProfile}>
+        <span className="mobile-header__avatar">
+          <img src="/pwa-192x192.png" alt="" />
+        </span>
         <span className="mobile-header__identity">
-          <small>{displayName}</small>
+          <small>Sugihara</small>
           <strong>Production</strong>
         </span>
       </button>
@@ -1272,8 +1270,8 @@ function MobileHeader({ activePage, adminOpen, displayName, onLiveShift, onOpenA
       >
         <span className="mobile-header__dot" aria-hidden="true"></span>
         <span>
+          <small>OEE</small>
           <strong>{formatPercent(totalSummary.oee)}%</strong>
-          <small>{sectionLabel}</small>
         </span>
       </button>
 
