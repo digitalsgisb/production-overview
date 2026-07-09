@@ -107,6 +107,23 @@ function getInitialAdminUsers(user) {
   }
 }
 
+function PersonIcon() {
+  return (
+    <svg className="person-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="8" r="4"></circle>
+      <path d="M4 21a8 8 0 0 1 16 0"></path>
+    </svg>
+  );
+}
+
+function UserAvatar({ className }) {
+  return (
+    <span className={className}>
+      <PersonIcon />
+    </span>
+  );
+}
+
 function Sidebar({ activePage, onSelectPage, onMenu, onLogout, isMobileNavOpen, onCloseMobileNav, sites = [], user }) {
   function handleSelectPage(page) {
     onSelectPage(page);
@@ -127,7 +144,7 @@ function Sidebar({ activePage, onSelectPage, onMenu, onLogout, isMobileNavOpen, 
         </div>
 
         <button className="sidebar-user" type="button" aria-label="Open profile summary" onClick={onMenu}>
-          <span className="sidebar-user__avatar">{displayName.charAt(0).toUpperCase()}</span>
+          <UserAvatar className="sidebar-user__avatar" />
           <span className="sidebar-user__meta">
             <strong>{displayName}</strong>
             <small>Control room</small>
@@ -631,7 +648,6 @@ function LineDetailModal({ lineId, line, onClose }) {
 function ProfileCard({ isOpen, onClose, sites, user }) {
   const displayName = user?.name || user?.email || "User";
   const displayId = user?.id || user?.email || "Signed in";
-  const avatarLetter = displayName.charAt(0).toUpperCase();
 
   return (
     <>
@@ -644,7 +660,7 @@ function ProfileCard({ isOpen, onClose, sites, user }) {
         </button>
 
         <div className="profile-row">
-          <div className="profile-avatar">{avatarLetter}</div>
+          <UserAvatar className="profile-avatar" />
           <div className="profile-info">
             <div className="profile-name">{displayName}</div>
             <div className="profile-id">{displayId}</div>
@@ -1437,16 +1453,6 @@ function Dashboard({ user, onLogout }) {
 
     return runningLine || PORT_KLANG_LINES[0];
   }, [seededLines]);
-  const runningLineCount = useMemo(() => {
-    return ALL_LINE_IDS.filter((lineId) => {
-      const status = String(getLineValue(seededLines[lineId], ["machine_mode", "mode", "status"], "offline"))
-        .trim()
-        .toLowerCase()
-        .replace(/[\s-]+/g, "_");
-
-      return status === "normal" || status === "running";
-    }).length;
-  }, [seededLines]);
 
   useEffect(() => {
     const socket = io(SOCKET_URL);
@@ -1557,7 +1563,7 @@ function Dashboard({ user, onLogout }) {
               setMobileNavOpen(false);
             }}
           >
-            <span className="user-chip__avatar">{displayName.charAt(0).toUpperCase()}</span>
+            <UserAvatar className="user-chip__avatar" />
             <span className="user-chip__text">
               <span>{displayName}</span>
               <small>Control room</small>
@@ -1565,20 +1571,6 @@ function Dashboard({ user, onLogout }) {
           </button>
           <button className="live-shift-btn" type="button">Live Shift</button>
           <div className="topbar-actions">
-            <button type="button" aria-label="Notifications">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 7h18s-3 0-3-7"></path>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-              </svg>
-              <span>{runningLineCount}</span>
-            </button>
-            <div className="search-pill" aria-label="Search">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8"></circle>
-                <path d="m21 21-4.35-4.35"></path>
-              </svg>
-              <span>Search...</span>
-            </div>
             <button
               className={adminOpen ? "is-active" : ""}
               type="button"
