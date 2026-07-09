@@ -20,6 +20,92 @@ const LINE_DOCUMENTATION_URLS = {
   SDY1: "https://l1sdygrafana.sugidigital.org/d/adqr5dg/line-1-smart-dashboard?orgId=1&from=now-5m&to=now&timezone=browser&refresh=5s",
   SDY2: "https://l2sdygrafana.sugidigital.org/d/ad6zlmx/line-2-smart-dashboard?orgId=1&from=now-5m&to=now&timezone=browser&refresh=5s",
 };
+const ADMIN_STORAGE_KEY = "productionOverviewAdminUsers";
+const ADMIN_ROLES = ["Admin", "Supervisor", "Line Leader", "Operator", "Viewer"];
+const ADMIN_SITES = ["Port Klang", "Sendayan"];
+
+function normalizeAdminSites(sites) {
+  const list = Array.isArray(sites) ? sites : [];
+  const filtered = list.filter((site) => ADMIN_SITES.includes(site));
+  return filtered.length > 0 ? filtered : [ADMIN_SITES[0]];
+}
+
+function createCurrentAdminUser(user) {
+  const displayName = user?.name || user?.email || "Local Admin";
+
+  return {
+    id: user?.id || user?.email || "local-admin",
+    name: displayName,
+    email: user?.email || "admin@local.test",
+    role: "Admin",
+    status: "Active",
+    sites: [...ADMIN_SITES],
+    lastSeen: "Signed in now",
+  };
+}
+
+function sanitizeAdminUser(record, index) {
+  const fallbackName = `User ${index + 1}`;
+  const name = String(record?.name || fallbackName).trim();
+  const email = String(record?.email || `${name.toLowerCase().replace(/\s+/g, ".")}@sugihara.local`).trim();
+  const role = ADMIN_ROLES.includes(record?.role) ? record.role : "Viewer";
+  const status = record?.status === "Paused" ? "Paused" : "Active";
+
+  return {
+    id: String(record?.id || `admin-user-${index}-${Date.now()}`),
+    name,
+    email,
+    role,
+    status,
+    sites: normalizeAdminSites(record?.sites),
+    lastSeen: record?.lastSeen || "Not yet active",
+  };
+}
+
+function getInitialAdminUsers(user) {
+  const currentUser = createCurrentAdminUser(user);
+  const fallbackUsers = [
+    currentUser,
+    {
+      id: "pk-supervisor",
+      name: "Port Klang Supervisor",
+      email: "pk.supervisor@sugihara.local",
+      role: "Supervisor",
+      status: "Active",
+      sites: ["Port Klang"],
+      lastSeen: "Today, 07:45",
+    },
+    {
+      id: "sendayan-lead",
+      name: "Sendayan Line Lead",
+      email: "sendayan.lead@sugihara.local",
+      role: "Line Leader",
+      status: "Active",
+      sites: ["Sendayan"],
+      lastSeen: "Today, 07:18",
+    },
+    {
+      id: "quality-viewer",
+      name: "Quality Viewer",
+      email: "quality.viewer@sugihara.local",
+      role: "Viewer",
+      status: "Paused",
+      sites: [...ADMIN_SITES],
+      lastSeen: "Yesterday, 17:10",
+    },
+  ];
+
+  try {
+    const savedUsers = JSON.parse(localStorage.getItem(ADMIN_STORAGE_KEY) || "[]");
+    const source = Array.isArray(savedUsers) && savedUsers.length > 0 ? savedUsers : fallbackUsers;
+    const sanitized = source.map(sanitizeAdminUser);
+    const hasCurrentUser = sanitized.some((adminUser) => adminUser.id === currentUser.id);
+
+    return hasCurrentUser ? sanitized : [currentUser, ...sanitized];
+  } catch {
+    return fallbackUsers;
+  }
+}
 
 function Sidebar({ activePage, onSelectPage, onMenu, onLogout, isMobileNavOpen, onCloseMobileNav, sites = [], user }) {
   function handleSelectPage(page) {
@@ -640,6 +726,284 @@ function ProfileCard({ isOpen, onClose, sites, user }) {
   );
 }
 
+function getInitials(name) {
+  return String(name || "U")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("") || "U";
+}
+
+function AdminControlDrawer({
+  currentUserId,
+  isOpen,
+  onAddUser,
+  onClose,
+  onRemoveUser,
+  onUpdateUser,
+  users,
+}) {
+  const [query, setQuery] = useState("");
+  const [draftUser, setDraftUser] = useState({
+    email: "",
+    name: "",
+    role: "Viewer",
+    sites: [ADMIN_SITES[0]],
+  });
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+    const previousOverflow = document.body.style.overflow;
+
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  const filteredUsers = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    if (!normalizedQuery) return users;
+
+    return users.filter((adminUser) => {
+      const haystack = [
+        adminUser.name,
+        adminUser.email,
+        adminUser.role,
+        adminUser.status,
+        ...(adminUser.sites || []),
+      ].join(" ").toLowerCase();
+
+      return haystack.includes(normalizedQuery);
+    });
+  }, [query, users]);
+  const activeCount = users.filter((adminUser) => adminUser.status === "Active").length;
+  const adminCount = users.filter((adminUser) => adminUser.role === "Admin").length;
+
+  function handleDraftSite(site) {
+    setDraftUser((current) => {
+      const currentSites = normalizeAdminSites(current.sites);
+      const nextSites = currentSites.includes(site)
+        ? currentSites.filter((item) => item !== site)
+        : [...currentSites, site];
+
+      return {
+        ...current,
+        sites: nextSites.length > 0 ? nextSites : [site],
+      };
+    });
+  }
+
+  function handleUserSite(userId, site) {
+    const adminUser = users.find((item) => item.id === userId);
+    if (!adminUser) return;
+
+    const currentSites = normalizeAdminSites(adminUser.sites);
+    const nextSites = currentSites.includes(site)
+      ? currentSites.filter((item) => item !== site)
+      : [...currentSites, site];
+
+    onUpdateUser(userId, {
+      sites: nextSites.length > 0 ? nextSites : [site],
+    });
+  }
+
+  function handleAddUser(event) {
+    event.preventDefault();
+
+    const name = draftUser.name.trim();
+    const email = draftUser.email.trim();
+
+    if (!name || !email) return;
+
+    onAddUser({
+      id: `admin-user-${Date.now()}`,
+      name,
+      email,
+      role: draftUser.role,
+      status: "Active",
+      sites: normalizeAdminSites(draftUser.sites),
+      lastSeen: "New user",
+    });
+    setDraftUser({
+      email: "",
+      name: "",
+      role: "Viewer",
+      sites: [ADMIN_SITES[0]],
+    });
+    setQuery("");
+  }
+
+  return (
+    <>
+      <button
+        className={`admin-drawer-backdrop ${isOpen ? "is-visible" : ""}`}
+        type="button"
+        aria-label="Close admin control"
+        onClick={onClose}
+      ></button>
+      <aside
+        className={`admin-drawer ${isOpen ? "is-open" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="admin-control-title"
+        aria-hidden={!isOpen}
+      >
+        <header className="admin-drawer__header">
+          <div>
+            <p>System users</p>
+            <h2 id="admin-control-title">Admin Control</h2>
+          </div>
+          <button className="admin-drawer__close" type="button" aria-label="Close admin control" onClick={onClose}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </header>
+
+        <div className="admin-stat-grid" aria-label="User summary">
+          <span><strong>{users.length}</strong>Total</span>
+          <span><strong>{activeCount}</strong>Active</span>
+          <span><strong>{adminCount}</strong>Admins</span>
+        </div>
+
+        <label className="admin-search" htmlFor="admin-user-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+          </svg>
+          <input
+            id="admin-user-search"
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search users"
+          />
+        </label>
+
+        <form className="admin-add-user" onSubmit={handleAddUser}>
+          <div className="admin-section-title">Add User</div>
+          <div className="admin-form-grid">
+            <label>
+              <span>Name</span>
+              <input
+                type="text"
+                value={draftUser.name}
+                onChange={(event) => setDraftUser((current) => ({ ...current, name: event.target.value }))}
+              />
+            </label>
+            <label>
+              <span>Email</span>
+              <input
+                type="email"
+                value={draftUser.email}
+                onChange={(event) => setDraftUser((current) => ({ ...current, email: event.target.value }))}
+              />
+            </label>
+            <label>
+              <span>Role</span>
+              <select
+                value={draftUser.role}
+                onChange={(event) => setDraftUser((current) => ({ ...current, role: event.target.value }))}
+              >
+                {ADMIN_ROLES.map((role) => (
+                  <option value={role} key={role}>{role}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="admin-site-picker" aria-label="New user site access">
+            {ADMIN_SITES.map((site) => (
+              <label key={site}>
+                <input
+                  type="checkbox"
+                  checked={normalizeAdminSites(draftUser.sites).includes(site)}
+                  onChange={() => handleDraftSite(site)}
+                />
+                <span>{site}</span>
+              </label>
+            ))}
+          </div>
+          <button className="admin-add-user__submit" type="submit">Add User</button>
+        </form>
+
+        <div className="admin-users-list" aria-label="Managed users">
+          {filteredUsers.map((adminUser) => (
+            <article className="admin-user-row" key={adminUser.id}>
+              <div className="admin-user-row__head">
+                <span className="admin-user-avatar">{getInitials(adminUser.name)}</span>
+                <div className="admin-user-identity">
+                  <strong>{adminUser.name}</strong>
+                  <small>{adminUser.email}</small>
+                </div>
+                <span className={`admin-status-badge ${adminUser.status === "Active" ? "is-active" : ""}`}>
+                  {adminUser.status}
+                </span>
+              </div>
+
+              <div className="admin-user-row__controls">
+                <label>
+                  <span>Role</span>
+                  <select
+                    value={adminUser.role}
+                    onChange={(event) => onUpdateUser(adminUser.id, { role: event.target.value })}
+                  >
+                    {ADMIN_ROLES.map((role) => (
+                      <option value={role} key={role}>{role}</option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  className={`admin-status-toggle ${adminUser.status === "Active" ? "is-active" : ""}`}
+                  type="button"
+                  onClick={() => onUpdateUser(adminUser.id, { status: adminUser.status === "Active" ? "Paused" : "Active" })}
+                >
+                  {adminUser.status === "Active" ? "Pause" : "Activate"}
+                </button>
+                <button
+                  className="admin-remove-user"
+                  type="button"
+                  disabled={adminUser.id === currentUserId}
+                  onClick={() => onRemoveUser(adminUser.id)}
+                >
+                  Remove
+                </button>
+              </div>
+
+              <div className="admin-site-picker admin-site-picker--row" aria-label={`${adminUser.name} site access`}>
+                {ADMIN_SITES.map((site) => (
+                  <label key={site}>
+                    <input
+                      type="checkbox"
+                      checked={normalizeAdminSites(adminUser.sites).includes(site)}
+                      onChange={() => handleUserSite(adminUser.id, site)}
+                    />
+                    <span>{site}</span>
+                  </label>
+                ))}
+              </div>
+              <div className="admin-user-row__meta">Last seen: {adminUser.lastSeen}</div>
+            </article>
+          ))}
+          {filteredUsers.length === 0 && (
+            <div className="admin-empty-state">No users found</div>
+          )}
+        </div>
+      </aside>
+    </>
+  );
+}
+
 function createFallbackLine(lineId) {
   return {
     line_id: lineId,
@@ -771,21 +1135,23 @@ function LiveFocusPanel({ history, totalSummary, sites }) {
         </div>
       </div>
       <LiveTrendChart points={history.overall} className="live-focus-panel__chart" />
-      <div className="live-focus-panel__stats" aria-label="OEE trend statistics">
-        <span>Min <strong>{formatPercent(meta.min)}%</strong></span>
-        <span>Max <strong>{formatPercent(meta.max)}%</strong></span>
-        <span className={meta.delta < 0 ? "is-negative" : "is-positive"}>Delta <strong>{deltaLabel}</strong></span>
-      </div>
-      <div className="live-focus-panel__sites">
-        {sites.map((site) => (
-          <div className="live-site-pill" key={site.key}>
-            <span>{site.name}</span>
-            <strong>{site.oee}%</strong>
-            <div className="live-site-pill__track">
-              <i style={{ width: `${site.oee}%` }}></i>
+      <div className="live-focus-panel__footer">
+        <div className="live-focus-panel__stats" aria-label="OEE trend statistics">
+          <span>Min <strong>{formatPercent(meta.min)}%</strong></span>
+          <span>Max <strong>{formatPercent(meta.max)}%</strong></span>
+          <span className={meta.delta < 0 ? "is-negative" : "is-positive"}>Delta <strong>{deltaLabel}</strong></span>
+        </div>
+        <div className="live-focus-panel__sites">
+          {sites.map((site) => (
+            <div className="live-site-pill" key={site.key}>
+              <span>{site.name}</span>
+              <strong>{site.oee}%</strong>
+              <div className="live-site-pill__track">
+                <i style={{ width: `${site.oee}%` }}></i>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -979,6 +1345,8 @@ function Dashboard({ user, onLogout }) {
   const [lines, setLines] = useState({});
   const [activePage, setActivePage] = useState("progress");
   const [profileOpen, setProfileOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [adminUsers, setAdminUsers] = useState(() => getInitialAdminUsers(user));
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [selectedLineId, setSelectedLineId] = useState(null);
   const [telemetryHistory, setTelemetryHistory] = useState({ overall: [], lines: {} });
@@ -1038,6 +1406,10 @@ function Dashboard({ user, onLogout }) {
   useEffect(() => {
     telemetrySampleRef.current = telemetrySample;
   }, [telemetrySample]);
+
+  useEffect(() => {
+    localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(adminUsers));
+  }, [adminUsers]);
 
   useEffect(() => {
     const sampleTelemetry = () => {
@@ -1107,16 +1479,37 @@ function Dashboard({ user, onLogout }) {
     if (window.matchMedia("(max-width: 767px)").matches) {
       setMobileNavOpen((open) => !open);
       setProfileOpen(false);
+      setAdminOpen(false);
       return;
     }
 
     setProfileOpen((open) => !open);
+    setAdminOpen(false);
   }
 
   function handleLogout() {
     setProfileOpen(false);
+    setAdminOpen(false);
     setMobileNavOpen(false);
     if (onLogout) onLogout();
+  }
+
+  function handleAddAdminUser(adminUser) {
+    setAdminUsers((currentUsers) => [...currentUsers, sanitizeAdminUser(adminUser, currentUsers.length)]);
+  }
+
+  function handleUpdateAdminUser(userId, updates) {
+    setAdminUsers((currentUsers) => (
+      currentUsers.map((adminUser, index) => (
+        adminUser.id === userId
+          ? sanitizeAdminUser({ ...adminUser, ...updates }, index)
+          : adminUser
+      ))
+    ));
+  }
+
+  function handleRemoveAdminUser(userId) {
+    setAdminUsers((currentUsers) => currentUsers.filter((adminUser) => adminUser.id !== userId));
   }
 
   return (
@@ -1138,6 +1531,15 @@ function Dashboard({ user, onLogout }) {
         onClick={() => setMobileNavOpen(false)}
       ></button>
       <ProfileCard isOpen={profileOpen} onClose={() => setProfileOpen(false)} sites={siteSummaries} user={user} />
+      <AdminControlDrawer
+        currentUserId={createCurrentAdminUser(user).id}
+        isOpen={adminOpen}
+        onAddUser={handleAddAdminUser}
+        onClose={() => setAdminOpen(false)}
+        onRemoveUser={handleRemoveAdminUser}
+        onUpdateUser={handleUpdateAdminUser}
+        users={adminUsers}
+      />
       <LineDetailModal
         lineId={selectedLineId}
         line={selectedLineId ? seededLines[selectedLineId] : null}
@@ -1151,6 +1553,7 @@ function Dashboard({ user, onLogout }) {
             aria-label="Open profile summary"
             onClick={() => {
               setProfileOpen(true);
+              setAdminOpen(false);
               setMobileNavOpen(false);
             }}
           >
@@ -1176,7 +1579,17 @@ function Dashboard({ user, onLogout }) {
               </svg>
               <span>Search...</span>
             </div>
-            <button type="button" aria-label="Settings">
+            <button
+              className={adminOpen ? "is-active" : ""}
+              type="button"
+              aria-label="Admin control"
+              aria-pressed={adminOpen}
+              onClick={() => {
+                setAdminOpen((open) => !open);
+                setProfileOpen(false);
+                setMobileNavOpen(false);
+              }}
+            >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.51a2 2 0 0 1 1-1.72l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z"></path>
                 <circle cx="12" cy="12" r="3"></circle>
