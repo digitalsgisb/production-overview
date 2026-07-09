@@ -3170,9 +3170,13 @@ button {
     width: 62px;
     height: 62px;
     display: grid;
+    grid-template-rows: auto auto;
+    align-content: center;
     place-items: center;
+    row-gap: 3px;
     border-radius: 50%;
     background: conic-gradient(var(--accent-cyan) var(--oee-angle, 0deg), rgba(246, 243, 255, 0.1) 0);
+    overflow: hidden;
     box-shadow: 0 0 18px rgba(148, 240, 230, 0.16);
   }
 
@@ -3193,17 +3197,18 @@ button {
   }
 
   .mobile-oee-ring strong {
-    width: 4.6ch;
+    max-width: 46px;
     color: var(--text-primary);
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 900;
     line-height: 1;
+    white-space: nowrap;
     font-variant-numeric: tabular-nums;
   }
 
   .mobile-oee-ring small {
     color: var(--text-secondary);
-    font-size: 8px;
+    font-size: 7px;
     font-weight: 850;
   }
 
