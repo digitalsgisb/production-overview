@@ -836,6 +836,7 @@ button {
 }
 
 .live-trend {
+  position: relative;
   width: 100%;
   height: 100%;
   display: block;
@@ -843,29 +844,51 @@ button {
   overflow: visible;
 }
 
+.live-trend::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent 0%, rgba(246, 243, 255, 0.16) 48%, transparent 82%);
+  mix-blend-mode: screen;
+  opacity: 0.26;
+  transform: translateX(-110%);
+  animation: liveTrendSweep 3s ease-in-out infinite;
+}
+
 .live-trend--cyan {
   color: var(--accent-cyan);
 }
 
-.live-trend__grid {
-  fill: none;
-  stroke: rgba(246, 243, 255, 0.11);
-  stroke-dasharray: 4 8;
-  stroke-width: 1;
+.live-trend .recharts-wrapper,
+.live-trend .recharts-surface {
+  overflow: visible;
 }
 
-.live-trend__area {
-  color: inherit;
+.live-trend__grid {
+  stroke: rgba(246, 243, 255, 0.11);
+}
+
+.live-trend__grid line {
+  stroke: rgba(246, 243, 255, 0.11);
 }
 
 .live-trend__line {
-  fill: none;
-  stroke: currentColor;
+  color: inherit;
+}
+
+.live-trend__line .recharts-area-curve {
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 3;
   filter: drop-shadow(0 0 11px rgba(169, 141, 255, 0.62));
-  vector-effect: non-scaling-stroke;
+}
+
+.live-trend__line .recharts-area-area {
+  filter: drop-shadow(0 12px 20px rgba(169, 141, 255, 0.16));
+}
+
+.live-trend__beacon {
+  color: inherit;
 }
 
 .live-trend__dot {
@@ -882,6 +905,35 @@ button {
   animation: liveTrendPulse 1.7s ease-out infinite;
 }
 
+.live-trend-tooltip {
+  min-width: 86px;
+  padding: 8px 10px;
+  border: 1px solid rgba(197, 188, 255, 0.24);
+  border-radius: 8px;
+  background: rgba(8, 9, 17, 0.92);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(14px);
+}
+
+.live-trend-tooltip span,
+.live-trend-tooltip strong {
+  display: block;
+  line-height: 1.1;
+}
+
+.live-trend-tooltip span {
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.live-trend-tooltip strong {
+  margin-top: 4px;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 900;
+}
+
 @keyframes liveTrendPulse {
   0% {
     opacity: 0.22;
@@ -891,6 +943,17 @@ button {
   100% {
     opacity: 0;
     transform: scale(2.7);
+  }
+}
+
+@keyframes liveTrendSweep {
+  0% {
+    transform: translateX(-110%);
+  }
+
+  55%,
+  100% {
+    transform: translateX(110%);
   }
 }
 

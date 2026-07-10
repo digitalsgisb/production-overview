@@ -1,4 +1,13 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { io } from "socket.io-client";
 import LineCard from "./linecard.jsx";
 import "./dashboard.css";
@@ -387,36 +396,28 @@ function getTrendMeta(points = []) {
   };
 }
 
-function getTrendGeometry(points = [], width = 420, height = 174) {
-  const normalized = points.length > 0 ? points : createFlatHistory(0);
-  const top = 12;
-  const right = 12;
-  const bottom = 22;
-  const left = 16;
-  const plotWidth = width - left - right;
-  const plotHeight = height - top - bottom;
-  const xStep = normalized.length > 1 ? plotWidth / (normalized.length - 1) : 0;
+function formatTrendTime(time) {
+  const date = new Date(time);
+  if (Number.isNaN(date.getTime())) return "Live";
 
-  const coordinates = normalized.map((point, index) => {
-    const x = left + index * xStep;
-    const y = top + ((100 - clampPercent(point.value)) / 100) * plotHeight;
-    return { x, y, value: clampPercent(point.value) };
+  return date.toLocaleTimeString("en-MY", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
   });
+}
 
-  const linePath = coordinates.map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(" ");
-  const first = coordinates[0];
-  const last = coordinates[coordinates.length - 1];
-  const areaPath = `${linePath} L${last.x.toFixed(2)} ${height - bottom} L${first.x.toFixed(2)} ${height - bottom} Z`;
+function toLiveTrendData(points = [], compact = false) {
+  const normalized = points.length > 0 ? points : createFlatHistory(0);
+  const lastIndex = normalized.length - 1;
 
-  return {
-    areaPath,
-    coordinates,
-    grid: [25, 50, 75].map((value) => top + ((100 - value) / 100) * plotHeight),
-    height,
-    last,
-    linePath,
-    width,
-  };
+  return normalized.map((point, index) => ({
+    label: formatTrendTime(point.time),
+    value: clampPercent(point.value),
+    isLast: index === lastIndex,
+    compact,
+  }));
 }
 
 function normalizeNames(value) {
@@ -1089,31 +1090,88 @@ function getLineSnapshot(line) {
   };
 }
 
-function LiveTrendChart({ points, className = "", tone = "violet", compact = false }) {
-  const geometry = getTrendGeometry(points, compact ? 320 : 480, compact ? 148 : 210);
+function LiveTrendTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+
+  const value = payload[0]?.value ?? 0;
 
   return (
-    <svg
+    <div className="live-trend-tooltip">
+      <span>{label}</span>
+      <strong>{formatPercent(value)}% OEE</strong>
+    </div>
+  );
+}
+
+function LiveTrendDot({ cx, cy, payload }) {
+  if (!payload?.isLast || cx === undefined || cy === undefined) return null;
+
+  const dotRadius = payload.compact ? 3.4 : 4.2;
+  const pulseRadius = payload.compact ? 7 : 8;
+
+  return (
+    <g className="live-trend__beacon">
+      <circle className="live-trend__pulse" cx={cx} cy={cy} r={pulseRadius} />
+      <circle className="live-trend__dot" cx={cx} cy={cy} r={dotRadius} />
+    </g>
+  );
+}
+
+function LiveTrendChart({ points, className = "", tone = "violet", compact = false }) {
+  const chartId = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  const data = useMemo(() => toLiveTrendData(points, compact), [compact, points]);
+  const gradientId = `trendFill-${tone}-${chartId}`;
+  const margin = compact
+    ? { top: 8, right: 8, bottom: 2, left: 0 }
+    : { top: 8, right: 12, bottom: 4, left: 0 };
+
+  return (
+    <div
       className={`live-trend live-trend--${tone} ${compact ? "live-trend--compact" : ""} ${className}`}
-      viewBox={`0 0 ${geometry.width} ${geometry.height}`}
       role="img"
       aria-label="OEE trend over time"
-      preserveAspectRatio="none"
     >
-      <defs>
-        <linearGradient id={`trendFill-${tone}-${compact ? "compact" : "wide"}`} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="currentColor" stopOpacity="0.24" />
-          <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {geometry.grid.map((y) => (
-        <path className="live-trend__grid" d={`M16 ${y.toFixed(2)}H${geometry.width - 12}`} key={y} />
-      ))}
-      <path className="live-trend__area" d={geometry.areaPath} fill={`url(#trendFill-${tone}-${compact ? "compact" : "wide"})`} />
-      <path className="live-trend__line" d={geometry.linePath} />
-      <circle className="live-trend__pulse" cx={geometry.last.x} cy={geometry.last.y} r={compact ? 6 : 7} />
-      <circle className="live-trend__dot" cx={geometry.last.x} cy={geometry.last.y} r={compact ? 3.4 : 4.2} />
-    </svg>
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={margin}>
+          <defs>
+            <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="currentColor" stopOpacity="0.32" />
+              <stop offset="70%" stopColor="currentColor" stopOpacity="0.08" />
+              <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <CartesianGrid
+            className="live-trend__grid"
+            vertical={false}
+            stroke="rgba(246, 243, 255, 0.11)"
+            strokeDasharray="4 8"
+          />
+          <XAxis dataKey="label" hide />
+          <YAxis domain={[0, 100]} hide />
+          <Tooltip
+            content={<LiveTrendTooltip />}
+            cursor={{ stroke: "rgba(246, 243, 255, 0.24)", strokeWidth: 1 }}
+            isAnimationActive={false}
+          />
+          <Area
+            type="monotone"
+            dataKey="value"
+            className="live-trend__line"
+            stroke="currentColor"
+            strokeWidth={compact ? 2.4 : 3}
+            fill={`url(#${gradientId})`}
+            fillOpacity={1}
+            dot={<LiveTrendDot />}
+            activeDot={false}
+            isAnimationActive
+            animationBegin={0}
+            animationDuration={compact ? 720 : 980}
+            animationEasing="ease-out"
+            connectNulls
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
 
