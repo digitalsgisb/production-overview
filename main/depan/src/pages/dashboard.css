@@ -844,6 +844,10 @@ button {
   overflow: visible;
 }
 
+.live-trend.live-focus-panel__chart {
+  height: 112px;
+}
+
 .live-trend::after {
   content: "";
   position: absolute;
@@ -862,6 +866,7 @@ button {
 
 .live-trend .recharts-wrapper,
 .live-trend .recharts-surface {
+  min-height: 100%;
   overflow: visible;
 }
 
