@@ -3,6 +3,9 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -1369,6 +1372,44 @@ function MobileHero({ displayName, totalSummary, sites }) {
   );
 }
 
+function MobileOeePie({ value }) {
+  const oee = clampPercent(value);
+  const data = useMemo(() => [
+    { name: "OEE", value: oee },
+    { name: "Remaining", value: Math.max(0, 100 - oee) },
+  ], [oee]);
+
+  return (
+    <div className="mobile-oee-pie" aria-label={`OEE ${formatPercent(oee)}%`}>
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={data}
+            dataKey="value"
+            startAngle={90}
+            endAngle={-270}
+            innerRadius="70%"
+            outerRadius="100%"
+            cornerRadius={8}
+            stroke="none"
+            isAnimationActive
+            animationBegin={0}
+            animationDuration={900}
+            animationEasing="ease-out"
+          >
+            <Cell className="mobile-oee-pie__value" fill="var(--accent-cyan)" />
+            <Cell className="mobile-oee-pie__track" fill="rgba(246, 243, 255, 0.1)" />
+          </Pie>
+        </PieChart>
+      </ResponsiveContainer>
+      <div className="mobile-oee-pie__center">
+        <strong>{formatPercent(oee)}%</strong>
+        <small>OEE</small>
+      </div>
+    </div>
+  );
+}
+
 function MobileMetricDeck({ totalSummary, history }) {
   const meta = getTrendMeta(history.overall);
   const components = [
@@ -1408,10 +1449,7 @@ function MobileMetricDeck({ totalSummary, history }) {
           <small>OEE</small>
         </div>
         <div className="mobile-apq-layout">
-          <div className="mobile-oee-ring" style={{ "--oee-angle": `${clampPercent(totalSummary.oee) * 3.6}deg` }}>
-            <strong>{formatPercent(totalSummary.oee)}%</strong>
-            <small>OEE</small>
-          </div>
+          <MobileOeePie value={totalSummary.oee} />
           <div className="mobile-apq-list">
             {components.map((component) => (
               <div className="mobile-apq-row" key={component.key}>

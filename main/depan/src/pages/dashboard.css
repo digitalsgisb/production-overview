@@ -3233,38 +3233,48 @@ button {
     margin-top: 13px;
   }
 
-  .mobile-oee-ring {
+  .mobile-oee-pie {
     position: relative;
     width: 62px;
     height: 62px;
-    display: grid;
-    grid-template-rows: auto auto;
-    align-content: center;
-    place-items: center;
-    row-gap: 3px;
+    display: block;
     border-radius: 50%;
-    background: conic-gradient(var(--accent-cyan) var(--oee-angle, 0deg), rgba(246, 243, 255, 0.1) 0);
-    overflow: hidden;
+    color: var(--accent-cyan);
     box-shadow: 0 0 18px rgba(148, 240, 230, 0.16);
   }
 
-  .mobile-oee-ring::before {
-    content: "";
-    position: absolute;
-    inset: 8px;
-    border-radius: inherit;
-    background: #0b0c14;
+  .mobile-oee-pie .recharts-wrapper,
+  .mobile-oee-pie .recharts-surface {
+    overflow: visible;
   }
 
-  .mobile-oee-ring strong,
-  .mobile-oee-ring small {
+  .mobile-oee-pie__value {
+    filter: drop-shadow(0 0 9px rgba(148, 240, 230, 0.42));
+  }
+
+  .mobile-oee-pie__center {
+    position: absolute;
+    inset: 9px;
+    display: grid;
+    grid-template-rows: auto auto;
+    align-content: center;
+    justify-items: center;
+    row-gap: 3px;
+    border-radius: 50%;
+    background: #0b0c14;
+    box-shadow: inset 0 0 0 1px rgba(246, 243, 255, 0.05);
+    pointer-events: none;
+  }
+
+  .mobile-oee-pie strong,
+  .mobile-oee-pie small {
     position: relative;
     z-index: 1;
     margin: 0;
     text-align: center;
   }
 
-  .mobile-oee-ring strong {
+  .mobile-oee-pie strong {
     max-width: 46px;
     color: var(--text-primary);
     font-size: 13px;
@@ -3274,7 +3284,7 @@ button {
     font-variant-numeric: tabular-nums;
   }
 
-  .mobile-oee-ring small {
+  .mobile-oee-pie small {
     color: var(--text-secondary);
     font-size: 7px;
     font-weight: 850;
