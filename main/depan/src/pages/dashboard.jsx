@@ -1022,7 +1022,7 @@ function createFallbackLine(lineId) {
   };
 }
 
-function ProductionSection({ title, lineIds, lines, onSelectLine }) {
+function ProductionSection({ id, title, lineIds, lines, onSelectLine }) {
   const sectionLines = lineIds.map((lineId) => lines[lineId] ?? createFallbackLine(lineId));
   const runningCount = sectionLines.filter((line) => {
     const status = String(getLineValue(line, ["machine_mode", "mode", "status"], "offline"))
@@ -1036,7 +1036,7 @@ function ProductionSection({ title, lineIds, lines, onSelectLine }) {
   const sectionProgress = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 0;
 
   return (
-    <section className="plant-section">
+    <section className="plant-section" id={id}>
       <div className="plant-heading">
         <div>
           <p className="plant-eyebrow">{lineIds.length} production lines</p>
@@ -1353,21 +1353,25 @@ function MobileHero({ displayName, totalSummary, sites }) {
   const firstName = displayName.split(" ")[0] || "Team";
 
   return (
-    <section className="mobile-hero">
-      <p>Hello, {firstName}</p>
-      <h1>How's Production Today?</h1>
-      <div className="mobile-site-strip">
+    <section className="mobile-hero" aria-label="Production summary">
+      <h1>Hello, {firstName}</h1>
+      <nav className="mobile-site-strip" aria-label="Jump to production details">
         {sites.map((site) => (
-          <span key={site.key} className={site.progress >= 80 ? "is-good" : ""}>
+          <a
+            key={site.key}
+            className={site.progress >= 80 ? "is-good" : ""}
+            href={`#site-${site.key}`}
+            aria-label={`${site.name}: ${site.oee}% OEE. Jump to ${site.name} lines.`}
+          >
             <strong>{site.oee}%</strong>
-            {site.name}
-          </span>
+            <span>{site.name}</span>
+          </a>
         ))}
-        <span>
+        <a href="#mobile-output" aria-label={`${totalSummary.rejects} rejects. Jump to output summary.`}>
           <strong>{totalSummary.rejects}</strong>
-          Reject
-        </span>
-      </div>
+          <span>Reject</span>
+        </a>
+      </nav>
     </section>
   );
 }
@@ -1432,7 +1436,7 @@ function MobileMetricDeck({ totalSummary, history }) {
           <span>Max {formatPercent(meta.max)}%</span>
         </div>
       </div>
-      <div className="mobile-output-card">
+      <div className="mobile-output-card" id="mobile-output">
         <div className="mobile-card-head">
           <span>Output</span>
           <small>{totalSummary.progress}%</small>
@@ -1787,12 +1791,14 @@ function Dashboard({ user, onLogout }) {
             />
 
             <ProductionSection
+              id="site-klang"
               title="Port Klang"
               lineIds={PORT_KLANG_LINES}
               lines={seededLines}
               onSelectLine={setSelectedLineId}
             />
             <ProductionSection
+              id="site-sendayan"
               title="Sendayan"
               lineIds={SENDAYAN_LINES}
               lines={seededLines}

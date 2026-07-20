@@ -1,0 +1,409 @@
+warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'main/depan/src/pages/dashboard.css', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'main/depan/src/pages/dashboard.jsx', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/.vscode/settings.json b/.vscode/settings.json[m
+[1mindex 869d834..e69de29 100644[m
+[1m--- a/.vscode/settings.json[m
+[1m+++ b/.vscode/settings.json[m
+[36m@@ -1,20 +0,0 @@[m
+[31m-{[m
+[31m-    "workbench.colorCustomizations": {[m
+[31m-        "activityBar.activeBackground": "#dad6e7",[m
+[31m-        "activityBar.background": "#dad6e7",[m
+[31m-        "activityBar.foreground": "#301934",[m
+[31m-        "activityBar.inactiveForeground": "#30193499",[m
+[31m-        "activityBarBadge.background": "#ad8072",[m
+[31m-        "activityBarBadge.foreground": "#301934",[m
+[31m-        "commandCenter.border": "#30193499",[m
+[31m-        "statusBar.background": "#bdb5d5",[m
+[31m-        "statusBar.foreground": "#301934",[m
+[31m-        "statusBarItem.hoverBackground": "#a094c3",[m
+[31m-        "statusBarItem.remoteBackground": "#bdb5d5",[m
+[31m-        "statusBarItem.remoteForeground": "#301934",[m
+[31m-        "titleBar.activeBackground": "#bdb5d5",[m
+[31m-        "titleBar.activeForeground": "#301934",[m
+[31m-        "titleBar.inactiveBackground": "#bdb5d599",[m
+[31m-        "titleBar.inactiveForeground": "#30193499"[m
+[31m-    }[m
+[31m-}[m
+\ No newline at end of file[m
+[1mdiff --git a/README.md b/README.md[m
+[1mindex 6332c63..b8f1d07 100644[m
+[1m--- a/README.md[m
+[1m+++ b/README.md[m
+[36m@@ -1,16 +1,237 @@[m
+[31m-- any password, or dependencies refer .env[m
+[31m-- two files == depan (frontned) and server (backend)[m
+[31m-- the way it works:[m
+[31m-- production lines send data to backend via http, then the node js : 1. save data to database 2. send data to react ( only if saving to database is successful )[m
+[31m-- server  - server.js is the main server files, functions.js are functions to create/insert data into database, class.js is for the object creating[m
+[31m-[m
+[31m--how it works pt2 :[m
+[31m--when node js send data to react js, it saves the data into existing object, every production line that is visible in react is based on the existing object,[m
+[31m--to add or remove object/production lines, just refer to file depan/src/pages/dashboard.jsx, the line PORT KLANG LINES AND SENDAYAN LINES are the objects,[m
+[31m--just add new or remove it, exp: ["ABB4", "ABB7", "ABB2","NEWLINE"]; - every row would have 4 line max  per row in the website display[m
+[31m-[m
+[31m--for database access:[m
+[31m--refer .env in control center vscode[m
+[31m-[m
+[31m--for raspberry pi / port setup / nodered notes:[m
+[31m--refer DEPLOYMENT.md[m
+[32m+[m[32m# Production Overview[m
+[32m+[m
+[32m+[m[32mLive production dashboard with:[m
+[32m+[m
+[32m+[m[32m- React/Vite frontend in `main/depan`[m
+[32m+[m[32m- Node.js backend in `main/server`[m
+[32m+[m[32m- Raspberry Pi setup and update script in `scripts/setup-pi.sh`[m
+[32m+[m
+[32m+[m[32mProduction lines send data to the backend through HTTP. The backend saves the[m
+[32m+[m[32mdata to PostgreSQL and sends successful updates to the React dashboard through[m
+[32m+[m[32mWebSocket.[m
+[32m+[m
+[32m+[m[32m## Daily update workflow: PC to GitHub to Raspberry Pi[m
+[32m+[m
+[32m+[m[32mUse these steps whenever a change is ready to deploy.[m
+[32m+[m
+[32m+[m[32m### 1. Push the change from the development PC[m
+[32m+[m
+[32m+[m[32mOpen PowerShell and enter the repository folder:[m
+[32m+[m
+[32m+[m[32m```powershell[m
+[32m+[m[32mcd "C:\Users\haffizol\Desktop\Code\Production overview (adam)\production-overview"[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mReview the changed files before committing:[m
+[32m+[m
+[32m+[m[32m```powershell[m
+[32m+[m[32mgit status[m
+[32m+[m[32mgit diff[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mStage the changes and check the list again:[m
+[32m+[m
+[32m+[m[32m```powershell[m
+[32m+[m[32mgit add -A[m
+[32m+[m[32mgit status[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mDo not continue if `.env`, passwords, API keys, or database credentials appear[m
+[32m+[m[32min the staged file list.[m
+[32m+[m
+[32m+[m[32mCommit and push to the `main` branch:[m
+[32m+[m
+[32m+[m[32m```powershell[m
+[32m+[m[32mgit commit -m "Describe what was changed"[m
+[32m+[m[32mgit push origin main[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mExample:[m
+[32m+[m
+[32m+[m[32m```powershell[m
+[32m+[m[32mgit commit -m "Improve mobile production dashboard"[m
+[32m+[m[32mgit push origin main[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mIf GitHub asks you to sign in, use the browser sign-in or a GitHub personal[m
+[32m+[m[32maccess token. A normal GitHub account password does not work for Git pushes.[m
+[32m+[m
+[32m+[m[32m### 2. Pull and deploy the update on the Raspberry Pi[m
+[32m+[m
+[32m+[m[32mConnect to the Pi:[m
+[32m+[m
+[32m+[m[32m```bash[m
+[32m+[m[32mssh <pi-user>@<pi-ip>[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mExample:[m
+[32m+[m
+[32m+[m[32m```bash[m
+[32m+[m[32mssh pi@192.168.1.50[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mRun the project update script:[m
+[32m+[m
+[32m+[m[32m```bash[m
+[32m+[m[32mcd ~/production-overview[m
+[32m+[m[32mbash scripts/setup-pi.sh[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mFor an existing installation, this script will:[m
+[32m+[m
+[32m+[m[32m1. Pull the newest code from GitHub with `git pull --ff-only`.[m
+[32m+[m[32m2. Keep the existing `main/server/.env` file.[m
+[32m+[m[32m3. Install the backend and frontend dependencies.[m
+[32m+[m[32m4. Build the frontend.[m
+[32m+[m[32m5. Restart the backend and frontend services.[m
+[32m+[m
+[32m+[m[32mWhen it finishes, open:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mhttp://<pi-ip>:5173[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mIf the phone still shows the old version, close and reopen the installed app or[m
+[32m+[m[32mrefresh the browser. The dashboard is a PWA and may briefly keep a cached copy.[m
+[32m+[m
+[32m+[m[32m## Short copy-and-paste version[m
+[32m+[m
+[32m+[m[32mOn the development PC, from the repository folder:[m
+[32m+[m
+[32m+[m[32m```powershell[m
+[32m+[m[32mgit status[m
+[32m+[m[32mgit add -A[m
+[32m+[m[32mgit status[m
+[32m+[m[32mgit commit -m "Describe what was changed"[m
+[32m+[m[32mgit push origin main[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mOn the Raspberry Pi:[m
+[32m+[m
+[32m+[m[32m```bash[m
+[32m+[m[32mcd ~/production-overview[m
+[32m+[m[32mbash scripts/setup-pi.sh[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m## First-time Raspberry Pi installation[m
+[32m+[m
+[32m+[m[32mRun this once from a clean Raspberry Pi terminal:[m
+[32m+[m
+[32m+[m[32m```bash[m
+[32m+[m[32mbash -c "$(curl -fsSL https://raw.githubusercontent.com/digitalsgisb/production-overview/main/scripts/setup-pi.sh)"[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mThe installer will clone the repository to `~/production-overview`, install[m
+[32m+[m[32mGit and Node.js when needed, ask for the environment settings, install the[m
+[32m+[m[32mdependencies, build the frontend, and start both services.[m
+[32m+[m
+[32m+[m[32mImportant environment values are stored in `main/server/.env` on the Pi:[m
+[32m+[m
+[32m+[m[32m- `API_KEY` must match the `x-api-key` value used by Node-RED.[m
+[32m+[m[32m- `FRONTEND_ORIGINS` must include `http://<pi-ip>:5173`.[m
+[32m+[m[32m- `DB_HOST`, `DB_USER`, `DB_PASS`, `DB_DB`, and `DB_PORT` configure PostgreSQL.[m
+[32m+[m[32m- `LOCAL_ADMIN_EMAIL` and `LOCAL_ADMIN_PASSWORD` configure the local login.[m
+[32m+[m
+[32m+[m[32mNever commit `main/server/.env` to GitHub.[m
+[32m+[m
+[32m+[m[32m## Check the Raspberry Pi services[m
+[32m+[m
+[32m+[m[32mCheck whether both services are running:[m
+[32m+[m
+[32m+[m[32m```bash[m
+[32m+[m[32msudo systemctl status production-overview-backend production-overview-frontend[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mRestart them manually:[m
+[32m+[m
+[32m+[m[32m```bash[m
+[32m+[m[32msudo systemctl restart production-overview-backend production-overview-frontend[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mShow recent backend logs:[m
+[32m+[m
+[32m+[m[32m```bash[m
+[32m+[m[32msudo journalctl -u production-overview-backend -n 100 --no-pager[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mShow recent frontend logs:[m
+[32m+[m
+[32m+[m[32m```bash[m
+[32m+[m[32msudo journalctl -u production-overview-frontend -n 100 --no-pager[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mFollow live logs and stop with `Ctrl+C`:[m
+[32m+[m
+[32m+[m[32m```bash[m
+[32m+[m[32msudo journalctl -u production-overview-backend -f[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m## Manual Raspberry Pi update[m
+[32m+[m
+[32m+[m[32mUse this only if `scripts/setup-pi.sh` cannot be used:[m
+[32m+[m
+[32m+[m[32m```bash[m
+[32m+[m[32mcd ~/production-overview[m
+[32m+[m[32mgit pull --ff-only origin main[m
+[32m+[m[32mnpm ci --prefix main/server[m
+[32m+[m[32mnpm ci --prefix main/depan[m
+[32m+[m[32mnpm run build --prefix main/depan[m
+[32m+[m[32msudo systemctl restart production-overview-backend production-overview-frontend[m
+[32m+[m[32msudo systemctl status production-overview-backend production-overview-frontend[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m## Common Git problems[m
+[32m+[m
+[32m+[m[32m### Push rejected because GitHub has newer changes[m
+[32m+[m
+[32m+[m[32mOn the development PC:[m
+[32m+[m
+[32m+[m[32m```powershell[m
+[32m+[m[32mgit pull --rebase origin main[m
+[32m+[m[32mgit push origin main[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mIf Git reports a conflict, do not force-push. Resolve the named files, stage[m
+[32m+[m[32mthem with `git add`, then continue with:[m
+[32m+[m
+[32m+[m[32m```powershell[m
+[32m+[m[32mgit rebase --continue[m
+[32m+[m[32mgit push origin main[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m### Raspberry Pi has local changes and cannot pull[m
+[32m+[m
+[32m+[m[32mCheck what changed:[m
+[32m+[m
+[32m+[m[32m```bash[m
+[32m+[m[32mcd ~/production-overview[m
+[32m+[m[32mgit status[m
+[32m+[m[32mgit diff[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mDo not delete or overwrite the changes until you know why they are there. The[m
+[32m+[m[32mPi should normally keep configuration in `.env`, which Git ignores, rather[m
+[32m+[m[32mthan editing tracked source files.[m
+[32m+[m
+[32m+[m[32m### Confirm the Pi received the latest commit[m
+[32m+[m
+[32m+[m[32mRun this on both the PC and the Pi:[m
+[32m+[m
+[32m+[m[32m```bash[m
+[32m+[m[32mgit log -1 --oneline[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mThe commit ID and message should match.[m
+[32m+[m
+[32m+[m[32m## Project notes[m
+[32m+[m
+[32m+[m[32mTo add or remove production lines, edit `main/depan/src/pages/dashboard.jsx`.[m
+[32m+[m[32mThe `PORT_KLANG_LINES` and `SENDAYAN_LINES` arrays control which lines appear:[m
+[32m+[m
+[32m+[m[32m```js[m
+[32m+[m[32mconst PORT_KLANG_LINES = ["ABB4", "ABB7", "ABB2"];[m
+[32m+[m[32mconst SENDAYAN_LINES = ["SDY1", "SDY2"];[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mFor ports, Node-RED endpoints, API keys, and database deployment details, see[m
+[32m+[m[32m`DEPLOYMENT.md`.[m
+[1mdiff --git a/main/depan/src/pages/dashboard.css b/main/depan/src/pages/dashboard.css[m
+[1mindex 3b2f002..b0610b7 100644[m
+[1m--- a/main/depan/src/pages/dashboard.css[m
+[1m+++ b/main/depan/src/pages/dashboard.css[m
+[36m@@ -3014,7 +3014,7 @@[m [mbutton {[m
+   .mobile-hero {[m
+     display: block;[m
+     margin-bottom: 14px;[m
+[31m-    padding: 18px 14px 14px;[m
+[32m+[m[32m    padding: 16px 14px 14px;[m
+     border: 1px solid rgba(174, 167, 216, 0.14);[m
+     border-radius: 8px;[m
+     background:[m
+[36m@@ -3022,21 +3022,12 @@[m [mbutton {[m
+       linear-gradient(145deg, rgba(30, 26, 66, 0.82), rgba(9, 10, 18, 0.92));[m
+   }[m
+ [m
+[31m-  .mobile-hero p {[m
+[31m-    margin: 0 0 4px;[m
+[31m-    color: var(--text-secondary);[m
+[31m-    font-size: 13px;[m
+[31m-    text-align: center;[m
+[31m-  }[m
+[31m-[m
+   .mobile-hero h1 {[m
+[31m-    max-width: 260px;[m
+[31m-    margin: 0 auto 18px;[m
+[32m+[m[32m    margin: 0 0 13px;[m
+     color: var(--text-primary);[m
+[31m-    font-size: clamp(27px, 8vw, 35px);[m
+[31m-    font-weight: 850;[m
+[31m-    line-height: 1.05;[m
+[31m-    text-align: center;[m
+[32m+[m[32m    font-size: 16px;[m
+[32m+[m[32m    font-weight: 750;[m
+[32m+[m[32m    line-height: 1.2;[m
+   }[m
+ [m
+   .mobile-site-strip {[m
+[36m@@ -3045,29 +3036,48 @@[m [mbutton {[m
+     gap: 7px;[m
+   }[m
+ [m
+[31m-  .mobile-site-strip span {[m
+[32m+[m[32m  .mobile-site-strip > a {[m
+     min-width: 0;[m
+     display: flex;[m
+     flex-direction: column;[m
+     align-items: center;[m
+     gap: 3px;[m
+[32m+[m[32m    min-height: 52px;[m
+[32m+[m[32m    justify-content: center;[m
+     padding: 8px 4px;[m
+[32m+[m[32m    border: 1px solid transparent;[m
+     border-radius: 8px;[m
+     background: rgba(255, 255, 255, 0.055);[m
+     color: var(--text-secondary);[m
+     font-size: 10px;[m
+[32m+[m[32m    text-decoration: none;[m
+[32m+[m[32m    transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;[m
+   }[m
+ [m
+[31m-  .mobile-site-strip strong {[m
+[32m+[m[32m  .mobile-site-strip > a:active {[m
+[32m+[m[32m    transform: translateY(1px);[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  .mobile-site-strip > a:focus-visible {[m
+[32m+[m[32m    outline: 2px solid rgba(169, 141, 255, 0.72);[m
+[32m+[m[32m    outline-offset: 2px;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  .mobile-site-strip > a strong {[m
+     color: var(--text-primary);[m
+     font-size: 13px;[m
+     font-weight: 900;[m
+   }[m
+ [m
+[31m-  .mobile-site-strip .is-good {[m
+[32m+[m[32m  .mobile-site-strip > a.is-good {[m
+     background: rgba(169, 141, 255, 0.16);[m
+   }[m
+ [m
+[32m+[m[32m  .mobile-output-card,[m
+[32m+[m[32m  .plant-section {[m
+[32m+[m[32m    scroll-margin-top: calc(94px + env(safe-area-inset-top));[m
+[32m+[m[32m  }[m
+[32m+[m
+   .mobile-metric-deck {[m
+     display: grid;[m
+     grid-template-columns: 1fr 1fr;[m
+[1mdiff --git a/main/depan/src/pages/dashboard.jsx b/main/depan/src/pages/dashboard.jsx[m
+[1mindex 1997ad4..614ddaa 100644[m
+[1m--- a/main/depan/src/pages/dashboard.jsx[m
+[1m+++ b/main/depan/src/pages/dashboard.jsx[m
+[36m@@ -1022,7 +1022,7 @@[m [mfunction createFallbackLine(lineId) {[m
+   };[m
+ }[m
+ [m
+[31m-function ProductionSection({ title, lineIds, lines, onSelectLine }) {[m
+[32m+[m[32mfunction ProductionSection({ id, title, lineIds, lines, onSelectLine }) {[m
+   const sectionLines = lineIds.map((lineId) => lines[lineId] ?? createFallbackLine(lineId));[m
+   const runningCount = sectionLines.filter((line) => {[m
+     const status = String(getLineValue(line, ["machine_mode", "mode", "status"], "offline"))[m
+[36m@@ -1036,7 +1036,7 @@[m [mfunction ProductionSection({ title, lineIds, lines, onSelectLine }) {[m
+   const sectionProgress = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 0;[m
+ [m
+   return ([m
+[31m-    <section className="plant-section">[m
+[32m+[m[32m    <section className="plant-section" id={id}>[m
+       <div className="plant-heading">[m
+         <div>[m
+           <p className="plant-eyebrow">{lineIds.length} production lines</p>[m
+[36m@@ -1353,21 +1353,25 @@[m [mfunction MobileHero({ displayName, totalSummary, sites }) {[m
+   const firstName = displayName.split(" ")[0] || "Team";[m
+ [m
+   return ([m
+[31m-    <section className="mobile-hero">[m
+[31m-      <p>Hello, {firstName}</p>[m
+[31m-      <h1>How's Production Today?</h1>[m
+[31m-      <div className="mobile-site-strip">[m
+[32m+[m[32m    <section clas
