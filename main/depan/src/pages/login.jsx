@@ -73,7 +73,7 @@ function Login({ onLoginSuccess }) {
 
         <section className="login-card" aria-label="Login">
           <div className="login-logo">
-            <span className="login-logo__mark">SG</span>
+            <span className="login-logo__mark"><img src="/pwa-192x192.png" alt="" /></span>
             <div>
               <p className="login-logo__eyebrow">Authorized access</p>
               <div className="login-logo__text">Control Room Sign In</div>

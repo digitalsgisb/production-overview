@@ -1,18 +1,18 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400..900;1,14..32,400..900&display=swap");
 
 :root {
-  --login-bg: #05060c;
-  --login-panel: rgba(12, 13, 22, 0.88);
-  --login-panel-strong: rgba(18, 17, 32, 0.96);
-  --login-border: rgba(174, 167, 216, 0.15);
-  --login-border-strong: rgba(216, 201, 255, 0.34);
-  --login-text: #f6f3ff;
-  --login-muted: #a3a0b8;
-  --login-dim: #747189;
-  --login-violet: #a98dff;
-  --login-violet-soft: #d8ccff;
-  --login-cyan: #94f0e6;
-  --login-danger: #ff6b8c;
+  --login-bg: #080b13;
+  --login-panel: rgba(12, 16, 27, 0.9);
+  --login-panel-strong: rgba(14, 18, 29, 0.97);
+  --login-border: rgba(115, 137, 178, 0.17);
+  --login-border-strong: rgba(79, 140, 255, 0.34);
+  --login-text: #f4f7fb;
+  --login-muted: #8f9bb0;
+  --login-dim: #5d687a;
+  --login-blue: #4f8cff;
+  --login-blue-soft: #8bb7ff;
+  --login-cyan: #4fd1d9;
+  --login-danger: #f05e75;
 }
 
 * {
@@ -41,9 +41,9 @@ body {
   place-items: center;
   padding: clamp(16px, 4vw, 40px);
   background:
-    radial-gradient(circle at 50% -10%, rgba(169, 141, 255, 0.18), transparent 36%),
-    radial-gradient(circle at 88% 22%, rgba(148, 240, 230, 0.1), transparent 28%),
-    linear-gradient(180deg, #090a14 0%, #060711 58%, #05060c 100%);
+    radial-gradient(circle at 50% -10%, rgba(79, 140, 255, 0.11), transparent 36%),
+    radial-gradient(circle at 88% 22%, rgba(79, 209, 217, 0.06), transparent 28%),
+    linear-gradient(180deg, #0d111c 0%, #090d17 58%, #080b13 100%);
 }
 
 .login-wrap::before {
@@ -73,11 +73,7 @@ body {
 }
 
 .login-shell::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto;
-  height: 2px;
-  background: linear-gradient(90deg, var(--login-violet), var(--login-cyan), rgba(255, 255, 255, 0.2));
+  content: none;
 }
 
 .login-brand-panel {
@@ -90,16 +86,16 @@ body {
   padding: 42px;
   overflow: hidden;
   background:
-    radial-gradient(circle at 76% 72%, rgba(169, 141, 255, 0.44), transparent 34%),
-    radial-gradient(circle at 20% 20%, rgba(148, 240, 230, 0.12), transparent 28%),
-    linear-gradient(145deg, rgba(37, 31, 82, 0.84), rgba(9, 10, 18, 0.94));
+    radial-gradient(circle at 76% 72%, rgba(79, 140, 255, 0.15), transparent 36%),
+    radial-gradient(circle at 20% 20%, rgba(79, 209, 217, 0.07), transparent 30%),
+    linear-gradient(145deg, rgba(18, 29, 48, 0.9), rgba(9, 13, 23, 0.96));
 }
 
 .login-brand-panel::after {
   content: "";
   position: absolute;
   inset: 22px;
-  border: 1px solid rgba(216, 201, 255, 0.08);
+  border: 1px solid rgba(115, 137, 178, 0.08);
   border-radius: 8px;
   pointer-events: none;
 }
@@ -118,7 +114,7 @@ body {
 .login-eyebrow,
 .login-logo__eyebrow {
   margin: 0;
-  color: var(--login-violet-soft);
+  color: #8fa4c8;
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.1em;
@@ -147,7 +143,7 @@ body {
   align-items: center;
   gap: 8px;
   padding: 0 12px;
-  border: 1px solid rgba(216, 201, 255, 0.14);
+  border: 1px solid rgba(115, 137, 178, 0.16);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.045);
   color: var(--login-text);
@@ -160,7 +156,7 @@ body {
   height: 7px;
   border-radius: 50%;
   background: var(--login-cyan);
-  box-shadow: 0 0 14px rgba(148, 240, 230, 0.7);
+  box-shadow: 0 0 14px rgba(79, 209, 217, 0.58);
 }
 
 .login-card {
@@ -187,11 +183,15 @@ body {
   display: grid;
   place-items: center;
   border-radius: 8px;
-  background: linear-gradient(135deg, var(--login-violet), var(--login-cyan));
-  color: #090a14;
-  font-size: 13px;
-  font-weight: 950;
-  box-shadow: 0 14px 30px rgba(169, 141, 255, 0.26);
+  overflow: hidden;
+  background: #071820;
+  box-shadow: 0 14px 30px rgba(79, 209, 217, 0.18);
+}
+
+.login-logo__mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .login-logo__text {
@@ -243,9 +243,9 @@ body {
 }
 
 .form-field__input:focus {
-  border-color: rgba(169, 141, 255, 0.72);
+  border-color: rgba(79, 140, 255, 0.72);
   background: rgba(255, 255, 255, 0.055);
-  box-shadow: 0 0 0 3px rgba(169, 141, 255, 0.16);
+  box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.15);
 }
 
 .form-field__input-wrap .form-field__input {
@@ -290,8 +290,8 @@ body {
   padding: 12px;
   border: 0;
   border-radius: 8px;
-  background: linear-gradient(90deg, var(--login-violet), var(--login-violet-soft));
-  color: #090a14;
+  background: linear-gradient(90deg, var(--login-blue), var(--login-cyan));
+  color: #07111b;
   font-size: 14px;
   font-weight: 950;
   letter-spacing: 0.01em;
@@ -314,7 +314,7 @@ body {
 
 .submit-btn:focus-visible,
 .form-field__toggle:focus-visible {
-  outline: 2px solid var(--login-violet);
+  outline: 2px solid var(--login-cyan);
   outline-offset: 2px;
 }
 

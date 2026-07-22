@@ -34,5 +34,3 @@ def recolor(path: Path, hue_range: str) -> None:
 
 for icon_name in ("pwa-192x192.png", "pwa-512x512.png", "apple-touch-icon.png"):
     recolor(PUBLIC / icon_name, "purple")
-
-recolor(PUBLIC / "sugihara-grand-logo.png", "red")
