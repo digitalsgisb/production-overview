@@ -1,19 +1,19 @@
 import { memo } from "react";
 
 const STATUS_CONFIG = {
-    normal: { label: "Running", bg: "#20d487", fg: "#04150f" },
-    running: { label: "Running", bg: "#20d487", fg: "#04150f" },
-    loading: { label: "Loading", bg: "#4ea1ff", fg: "#05111f" },
-    delay: { label: "Delay", bg: "#f3b64d", fg: "#1b1203" },
-    rest: { label: "Rest", bg: "#f3b64d", fg: "#1b1203" },
-    downtime: { label: "Downtime", bg: "#ef3f5f", fg: "#ffffff" },
-    down: { label: "Downtime", bg: "#ef3f5f", fg: "#ffffff" },
-    planned_stop: { label: "Planned Stop", bg: "#ea5f7b", fg: "#ffffff" },
-    maintenance: { label: "Planned Stop", bg: "#ea5f7b", fg: "#ffffff" },
-    idle: { label: "Idle", bg: "#f3b64d", fg: "#1b1203" },
-    model_change: { label: "Model Change", bg: "#4ea1ff", fg: "#05111f" },
-    offline: { label: "Offline", bg: "#596677", fg: "#ffffff" },
-  };//planned_stop(light_red),normal(running),model_change(biru),downtime(red),rest(kuning)
+  normal: { label: "Running", bg: "#20d487", fg: "#04150f" },
+  running: { label: "Running", bg: "#20d487", fg: "#04150f" },
+  loading: { label: "Loading", bg: "#4f8cff", fg: "#061326" },
+  delay: { label: "Delay", bg: "#f5a524", fg: "#1c1000" },
+  rest: { label: "Rest", bg: "#35cddd", fg: "#03171b" },
+  downtime: { label: "Downtime", bg: "#ef455c", fg: "#ffffff" },
+  down: { label: "Downtime", bg: "#ef455c", fg: "#ffffff" },
+  planned_stop: { label: "Planned Stop", bg: "#fb7185", fg: "#26070d" },
+  maintenance: { label: "Maintenance", bg: "#a78bfa", fg: "#11072c" },
+  idle: { label: "Idle", bg: "#e8d44c", fg: "#171300" },
+  model_change: { label: "Model Change", bg: "#8b7cf6", fg: "#0d0828" },
+  offline: { label: "Offline", bg: "#667386", fg: "#ffffff" },
+};
 
   function getStatusConfig(status) {
     const key = String(status || "offline").trim().toLowerCase().replace(/[\s-]+/g, "_");
