@@ -21,7 +21,7 @@ const SOCKET_URL =
   import.meta.env.VITE_API_URL ||
   DEFAULT_API_URL;
 
-const PORT_KLANG_LINES = ["ABB4", "ABB7", "ABB2"];
+const PORT_KLANG_LINES = ["ABB2", "ABB4", "ABB7"];
 const SENDAYAN_LINES = ["SDY1", "SDY2"];
 const ALL_LINE_IDS = [...PORT_KLANG_LINES, ...SENDAYAN_LINES];
 const HISTORY_LIMIT = 28;
@@ -155,10 +155,6 @@ function Sidebar({ activePage, onSelectPage, onMenu, onLogout, isMobileNavOpen, 
           </span>
         </button>
 
-        <div className="sidebar-switch" aria-label="Production scope">
-          <span className="is-active">Lines</span>
-          <span>Sites</span>
-        </div>
       </div>
 
       <nav className="sidebar__group sidebar__group--middle" aria-label="Primary">
@@ -1748,11 +1744,6 @@ function Dashboard({ user, onLogout }) {
               <div>
                 <p className="dashboard-eyebrow">Live OEE timeline</p>
                 <h1>Production Line Overview</h1>
-              </div>
-              <div className="dashboard-filter-row" aria-label="Dashboard filters">
-                <span>24H</span>
-                <span>OEE</span>
-                <span>Output</span>
               </div>
             </section>
 

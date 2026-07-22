@@ -86,9 +86,13 @@ const STATUS_CONFIG = {
       >
         <div className="line-card__body">
           <div className="line-card__top">
-            <div>
+            <div className="line-card__identity">
               <span className="line-id-label">Line</span>
               <span className="line-id-value">{line?.line_id ?? lineId}</span>
+              <span className="line-card__status">
+                <span className="line-card__status-dot" aria-hidden="true"></span>
+                <span>{cfg.label}</span>
+              </span>
             </div>
             <div className="oee-ring" data-value-size={oeeDisplay.length > 3 ? "compact" : "normal"} aria-label={`OEE ${oeeDisplay}%`}>
               <span className="oee-value" key={oeeDisplay}>{oeeDisplay}%</span>
@@ -99,10 +103,6 @@ const STATUS_CONFIG = {
           <div className="line-model-panel">
             <span className="line-model-label">Current Model</span>
             <span className="line-model-value">{model}</span>
-          </div>
-
-          <div className="status-panel">
-            <span className="status-panel__value">{cfg.label}</span>
           </div>
 
           <div className="progress-block">
