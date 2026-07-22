@@ -1251,11 +1251,6 @@ function ActiveLinePanel({ lineId, line, onSelectLine }) {
     <section className="active-line-panel" style={{ "--status-color": snapshot.cfg.bg, "--status-fg": snapshot.cfg.fg }}>
       <div className="active-line-panel__toolbar">
         <span>Your active production</span>
-        <div className="active-line-panel__icons" aria-hidden="true">
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
       </div>
       <div className="active-line-panel__body">
         <div className="active-line-panel__main">
