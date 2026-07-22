@@ -61,7 +61,7 @@ function Login({ onLoginSuccess }) {
     <main className="login-wrap">
       <section className="login-shell" aria-label="Production overview login">
         <div className="login-brand-panel">
-          <img className="brand-logo-login" src="https://github.com/wblsugihara/image/blob/main/sugi_white.png?raw=true" alt="Sugihara Grand Industries" />
+          <img className="brand-logo-login" src="/sugihara-grand-logo.png" alt="Sugihara Grand Industries" />
           <p className="login-eyebrow">Live control room</p>
           <h1>Production Overview</h1>
           <div className="login-site-list" aria-label="Monitored sites">

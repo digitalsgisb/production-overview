@@ -140,7 +140,7 @@ function Sidebar({ activePage, onSelectPage, onMenu, onLogout, isMobileNavOpen, 
     <aside className={`sidebar ${isMobileNavOpen ? "is-mobile-open" : ""}`} aria-label="Main navigation">
       <div className="sidebar__group sidebar__group--top">
         <div className="sidebar-brand">
-          <img src="https://github.com/wblsugihara/image/blob/main/sugi_white.png?raw=true" alt="Sugihara Grand Industries" />
+          <img src="/sugihara-grand-logo.png" alt="Sugihara Grand Industries" />
           <div>
             <strong>Sugihara</strong>
             <span>Production Assets</span>
@@ -1217,7 +1217,7 @@ function PortfolioPanel({ sites, totalSummary }) {
   return (
     <aside className="portfolio-panel">
       <div className="portfolio-panel__brand">
-        <img src="https://github.com/wblsugihara/image/blob/main/sugi_white.png?raw=true" alt="" />
+        <img src="/sugihara-grand-logo.png" alt="" />
         <span>Live</span>
       </div>
       <h2>Production Portfolio</h2>
