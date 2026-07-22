@@ -560,8 +560,7 @@ button {
 }
 
 .compact-line-card::before,
-.summary-card::before,
-.line-card::before {
+.summary-card::before {
   content: "";
   position: absolute;
   inset: 0 0 auto;
@@ -569,8 +568,7 @@ button {
   background: linear-gradient(90deg, var(--status-color, var(--accent-violet)), rgba(255, 255, 255, 0.28));
 }
 
-.compact-line-card:hover,
-.line-card:hover {
+.compact-line-card:hover {
   border-color: color-mix(in srgb, var(--status-color, var(--accent-violet)) 42%, var(--card-border-strong));
   transform: translateY(-2px);
 }
@@ -1409,14 +1407,9 @@ button {
   min-height: 270px;
   overflow: hidden;
   padding: 0;
-  border-color: color-mix(in srgb, var(--status-color, #596677) 32%, var(--card-border));
-  background:
-    radial-gradient(circle at 88% 12%, color-mix(in srgb, var(--status-color, #596677) 14%, transparent), transparent 34%),
-    linear-gradient(145deg, color-mix(in srgb, var(--status-color, #596677) 10%, rgba(12, 13, 22, 0.94)), rgba(12, 13, 22, 0.9) 58%);
-  box-shadow:
-    var(--shadow-card),
-    inset 3px 0 0 color-mix(in srgb, var(--status-color, #596677) 74%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  border-color: var(--card-border);
+  background: color-mix(in srgb, var(--status-color, #596677) 11%, #0c0d16);
+  box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255, 255, 255, 0.035);
   color: inherit;
   text-align: left;
   appearance: none;
@@ -1425,11 +1418,11 @@ button {
 }
 
 .line-card:hover {
+  border-color: var(--card-border-strong);
   box-shadow:
     0 16px 34px rgba(0, 0, 0, 0.28),
-    0 0 24px color-mix(in srgb, var(--status-color, #596677) 9%, transparent),
-    inset 3px 0 0 var(--status-color, #596677),
     inset 0 1px 0 rgba(255, 255, 255, 0.055);
+  transform: translateY(-2px);
 }
 
 .line-card__body {
@@ -3421,9 +3414,7 @@ button {
   }
 
   .line-card {
-    background:
-      radial-gradient(circle at 88% 10%, color-mix(in srgb, var(--status-color, #596677) 14%, transparent), transparent 32%),
-      linear-gradient(145deg, color-mix(in srgb, var(--status-color, #596677) 10%, rgba(12, 13, 22, 0.94)), rgba(12, 13, 22, 0.9) 60%);
+    background: color-mix(in srgb, var(--status-color, #596677) 11%, #0c0d16);
   }
 
   .line-card__body {
