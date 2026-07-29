@@ -714,21 +714,36 @@ app.post('/setupModel', async(req,res) =>{
         return res.status(400).json({ success: false, error: 'No active session for this line' });
     }
 
+    const hourlyPlan = Number(data.hourly_plan);
+    if (
+        (typeof data.hourly_plan !== "number" && typeof data.hourly_plan !== "string") ||
+        (typeof data.hourly_plan === "string" && data.hourly_plan.trim() === "") ||
+        !Number.isFinite(hourlyPlan) ||
+        hourlyPlan < 0
+    ) {
+        return res.status(400).json({
+            success: false,
+            error: "hourly_plan must be a valid non-negative number"
+        });
+    }
+
     try {
         await pool.query(`
                 INSERT INTO session_model (session_id, model, lot_number, standard_cycle, pcs_hr, std_slab_width
                 ,std_slab_length, hourly_plan, model_changed, change_type, timestamp)
                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-            `,[session_id, data.model, data.lot_number, data.standard_cycle, data.pcs_hr, data.std_slab_width, data.std_slab_length, data.hourly_plan, data.model_changed, data.change_type, data.timestamp ]
+            `,[session_id, data.model, data.lot_number, data.standard_cycle, data.pcs_hr, data.std_slab_width, data.std_slab_length, hourlyPlan, data.model_changed, data.change_type, data.timestamp ]
         )
         line.model = data.model;
-        line.hourly_plan = data.hourly_plan; //later take a look at the constructor, add target
+        line.hourly_plan = hourlyPlan;
+        line.target = hourlyPlan;
 
         emitLineChanges(line_id, {
-    model: line.model,
-    target: line.hourly_plan,
-});
-    return res.json({ success: true, session_id, line });
+            model: line.model,
+            hourly_plan: line.hourly_plan,
+            target: line.target,
+        });
+        return res.json({ success: true, session_id, line });
 
     }catch(err){
         return res.status(500).json({ success: false, error: 'failed to setup model' });
