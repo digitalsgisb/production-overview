@@ -46,6 +46,10 @@ function validatePassword(value) {
     return password;
 }
 
+function createUserId() {
+    return crypto.randomUUID();
+}
+
 function createAuthRouter({ pool, hasDatabaseConfig, localAdmin }) {
     const configuredSecret = String(process.env.JWT_SECRET || "").trim();
     const jwtSecret = configuredSecret || crypto.randomBytes(64).toString("hex");
@@ -234,14 +238,16 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin }) {
             }
 
             const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+            const userId = createUserId();
             const result = await pool.query(`
-                INSERT INTO users (name, email, password, role, status, sites)
-                VALUES ($1, $2, $3, $4, 'Active', $5)
+                INSERT INTO users (id, name, email, password, role, status, sites)
+                VALUES ($1, $2, $3, $4, $5, 'Active', $6)
                 RETURNING id, email, name, role, status, sites, last_seen
-            `, [name, email, passwordHash, role, sites]);
+            `, [userId, name, email, passwordHash, role, sites]);
 
             return response.status(201).json({ user: toPublicUser(result.rows[0]) });
         } catch (error) {
+            console.error("Create user failed:", error.message);
             const isValidation = /^(Enter|Password)/.test(error.message || "");
             return response.status(isValidation ? 400 : 500).json({
                 message: isValidation ? error.message : "Unable to create the user.",
@@ -373,6 +379,7 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin }) {
 }
 
 module.exports = {
+    createUserId,
     createAuthRouter,
     normalizeSites,
     toPublicUser,

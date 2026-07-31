@@ -1,6 +1,13 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { normalizeSites, toPublicUser, validatePassword } = require("./auth.js");
+const { createUserId, normalizeSites, toPublicUser, validatePassword } = require("./auth.js");
+
+test("new database users receive a UUID string", () => {
+    assert.match(
+        createUserId(),
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+});
 
 test("admins always receive access to every site", () => {
     assert.deepEqual(normalizeSites(["Port Klang"], "Admin"), ["Port Klang", "Sendayan"]);
