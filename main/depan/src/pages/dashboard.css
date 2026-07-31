@@ -3149,6 +3149,11 @@ button {
     white-space: nowrap;
   }
 
+  .mobile-header--guest .mobile-header__identity strong {
+    font-size: 16px;
+    letter-spacing: -0.02em;
+  }
+
   .mobile-header__live {
     min-width: 68px;
     min-height: 54px;
@@ -3163,15 +3168,6 @@ button {
   .mobile-header__icon.is-active {
     border-color: rgba(79, 140, 255, 0.34);
     background: rgba(79, 140, 255, 0.13);
-  }
-
-  .mobile-header__dot {
-    width: 8px;
-    height: 8px;
-    flex-shrink: 0;
-    border-radius: 50%;
-    background: #16a36b;
-    box-shadow: 0 0 0 4px rgba(22, 163, 107, 0.12);
   }
 
   .mobile-header__live span:last-child {
@@ -3246,32 +3242,7 @@ button {
   .mobile-hero__intro {
     display: grid;
     justify-items: center;
-    gap: 7px;
     margin-bottom: 13px;
-  }
-
-  .mobile-hero__guest-mode {
-    min-height: 24px;
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 0 9px;
-    border: 1px solid rgba(79, 209, 217, 0.18);
-    border-radius: 999px;
-    background: rgba(79, 209, 217, 0.07);
-    color: #8eeaf0;
-    font-size: 9px;
-    font-weight: 900;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  .mobile-hero__guest-mode i {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #35e38f;
-    box-shadow: 0 0 0 4px rgba(53, 227, 143, 0.1);
   }
 
   .guest-site-nav {

@@ -1414,7 +1414,7 @@ function MobileHeader({ activePage, adminOpen, displayName, isAdmin, isGuest, on
         </span>
         <span className="mobile-header__identity">
           <small>Sugihara</small>
-          <strong>Production</strong>
+          <strong>Production Overview</strong>
         </span>
       </button>
 
@@ -1425,7 +1425,6 @@ function MobileHeader({ activePage, adminOpen, displayName, isAdmin, isGuest, on
         aria-pressed={activePage === "progress"}
         onClick={onLiveShift}
       >
-        <span className="mobile-header__dot" aria-hidden="true"></span>
         <span>
           <small>OEE</small>
           <strong>{formatPercent(totalSummary.oee)}%</strong>
@@ -1453,13 +1452,7 @@ function MobileHero({ displayName, isGuest, totalSummary, sites }) {
   return (
     <section className="mobile-hero" aria-label="Production summary">
       <div className="mobile-hero__intro">
-        <h1>{isGuest ? "Live production overview" : `Hello, ${firstName}`}</h1>
-        {isGuest && (
-          <span className="mobile-hero__guest-mode">
-            <i aria-hidden="true"></i>
-            Guest view · Live cards only
-          </span>
-        )}
+        <h1>{isGuest ? "Hello, Visitor" : `Hello, ${firstName}`}</h1>
       </div>
       <nav className="mobile-site-strip" aria-label="Jump to production details">
         {sites.map((site) => (
