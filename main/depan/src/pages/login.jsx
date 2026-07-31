@@ -39,16 +39,21 @@ function Login({ onLoginSuccess }) {
         return;
       }
 
-    //   localStorage.setItem("token", data.token);
+      localStorage.setItem("token", data.token);
       localStorage.setItem("userId", data.user.id);
       localStorage.setItem("email", data.user.email);
       localStorage.setItem("name", data.user.name);
+      localStorage.setItem("role", data.user.role);
+      localStorage.setItem("status", data.user.status);
+      localStorage.setItem("sites", JSON.stringify(data.user.sites || []));
 
       onLoginSuccess({
-        // token: data.token,
         id: data.user.id,
         email: data.user.email,
         name: data.user.name,
+        role: data.user.role,
+        status: data.user.status,
+        sites: data.user.sites || [],
       });
     } catch {
       setError("Connection to server failed");

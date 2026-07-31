@@ -129,10 +129,28 @@ Important environment values are stored in `main/server/.env` on the Pi:
 
 - `API_KEY` must match the `x-api-key` value used by Node-RED.
 - `FRONTEND_ORIGINS` must include `http://<pi-ip>:5173`.
+- `JWT_SECRET` signs login sessions. The setup script creates a random value automatically.
 - `DB_HOST`, `DB_USER`, `DB_PASS`, `DB_DB`, and `DB_PORT` configure PostgreSQL.
 - `LOCAL_ADMIN_EMAIL` and `LOCAL_ADMIN_PASSWORD` configure the local login.
 
 Never commit `main/server/.env` to GitHub.
+
+## Admin user access
+
+Sign in with an account whose role is `Admin`, then open the user icon in the
+top-right corner. When adding a user, enter the temporary password you want to
+give them. Passwords must contain at least 8 characters and are stored only as
+bcrypt hashes.
+
+Admins can activate or pause accounts, change roles, reset passwords, choose
+site access, and remove users. Assigning the `Admin` role automatically grants
+full access to every site. Non-admin users cannot open or call the Admin Control
+features.
+
+On the first database login or admin request, the backend adds the `role`,
+`status`, `sites`, and `last_seen` columns to an existing `users` table when
+they are missing. The PostgreSQL account therefore needs permission to alter
+that table for the first run.
 
 ## Check the Raspberry Pi services
 

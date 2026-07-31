@@ -20,6 +20,7 @@ const SOCKET_URL =
   import.meta.env.VITE_SOCKET_URL ||
   import.meta.env.VITE_API_URL ||
   DEFAULT_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL;
 
 const PORT_KLANG_LINES = ["ABB2", "ABB4", "ABB7"];
 const SENDAYAN_LINES = ["SDY1", "SDY2"];
@@ -32,7 +33,6 @@ const LINE_DOCUMENTATION_URLS = {
   SDY1: "https://l1sdygrafana.sugidigital.org/d/adqr5dg/line-1-smart-dashboard?orgId=1&from=now-5m&to=now&timezone=browser&refresh=5s",
   SDY2: "https://l2sdygrafana.sugidigital.org/d/ad6zlmx/line-2-smart-dashboard?orgId=1&from=now-5m&to=now&timezone=browser&refresh=5s",
 };
-const ADMIN_STORAGE_KEY = "productionOverviewAdminUsers";
 const ADMIN_ROLES = ["Admin", "Supervisor", "Line Leader", "Operator", "Viewer"];
 const ADMIN_SITES = ["Port Klang", "Sendayan"];
 
@@ -40,20 +40,6 @@ function normalizeAdminSites(sites) {
   const list = Array.isArray(sites) ? sites : [];
   const filtered = list.filter((site) => ADMIN_SITES.includes(site));
   return filtered.length > 0 ? filtered : [ADMIN_SITES[0]];
-}
-
-function createCurrentAdminUser(user) {
-  const displayName = user?.name || user?.email || "Local Admin";
-
-  return {
-    id: user?.id || user?.email || "local-admin",
-    name: displayName,
-    email: user?.email || "admin@local.test",
-    role: "Admin",
-    status: "Active",
-    sites: [...ADMIN_SITES],
-    lastSeen: "Signed in now",
-  };
 }
 
 function PersonIcon() {
@@ -65,67 +51,27 @@ function PersonIcon() {
   );
 }
 
-function sanitizeAdminUser(record, index) {
-  const fallbackName = `User ${index + 1}`;
-  const name = String(record?.name || fallbackName).trim();
-  const email = String(record?.email || `${name.toLowerCase().replace(/\s+/g, ".")}@sugihara.local`).trim();
-  const role = ADMIN_ROLES.includes(record?.role) ? record.role : "Viewer";
-  const status = record?.status === "Paused" ? "Paused" : "Active";
-
-  return {
-    id: String(record?.id || `admin-user-${index}-${Date.now()}`),
-    name,
-    email,
-    role,
-    status,
-    sites: normalizeAdminSites(record?.sites),
-    lastSeen: record?.lastSeen || "Not yet active",
-  };
+function formatLastSeen(value) {
+  if (!value) return "Not yet active";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
 }
 
-function getInitialAdminUsers(user) {
-  const currentUser = createCurrentAdminUser(user);
-  const fallbackUsers = [
-    currentUser,
-    {
-      id: "pk-supervisor",
-      name: "Port Klang Supervisor",
-      email: "pk.supervisor@sugihara.local",
-      role: "Supervisor",
-      status: "Active",
-      sites: ["Port Klang"],
-      lastSeen: "Today, 07:45",
+async function adminRequest(path = "", options = {}) {
+  const token = localStorage.getItem("token");
+  const response = await fetch(`${API_URL}/admin/users${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      ...options.headers,
     },
-    {
-      id: "sendayan-lead",
-      name: "Sendayan Line Lead",
-      email: "sendayan.lead@sugihara.local",
-      role: "Line Leader",
-      status: "Active",
-      sites: ["Sendayan"],
-      lastSeen: "Today, 07:18",
-    },
-    {
-      id: "quality-viewer",
-      name: "Quality Viewer",
-      email: "quality.viewer@sugihara.local",
-      role: "Viewer",
-      status: "Paused",
-      sites: [...ADMIN_SITES],
-      lastSeen: "Yesterday, 17:10",
-    },
-  ];
+  });
 
-  try {
-    const savedUsers = JSON.parse(localStorage.getItem(ADMIN_STORAGE_KEY) || "[]");
-    const source = Array.isArray(savedUsers) && savedUsers.length > 0 ? savedUsers : fallbackUsers;
-    const sanitized = source.map(sanitizeAdminUser);
-    const hasCurrentUser = sanitized.some((adminUser) => adminUser.id === currentUser.id);
-
-    return hasCurrentUser ? sanitized : [currentUser, ...sanitized];
-  } catch {
-    return fallbackUsers;
-  }
+  if (response.status === 204) return null;
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.message || "Unable to complete the admin request.");
+  return data;
 }
 
 function Sidebar({ activePage, onSelectPage, onMenu, onLogout, isMobileNavOpen, onCloseMobileNav, sites = [], user }) {
@@ -734,8 +680,46 @@ function ProfileCard({ isOpen, onClose, sites, user }) {
   );
 }
 
+function PasswordResetControl({ disabled, onReset }) {
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    if (password.length < 8) return;
+    const updated = await onReset(password);
+    if (updated) setPassword("");
+  }
+
+  return (
+    <form className="admin-password-reset" onSubmit={handleSubmit}>
+      <label>
+        <span>New password</span>
+        <div>
+          <input
+            type={showPassword ? "text" : "password"}
+            value={password}
+            minLength="8"
+            maxLength="72"
+            autoComplete="new-password"
+            placeholder="Minimum 8 characters"
+            disabled={disabled}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+          <button type="button" disabled={disabled} onClick={() => setShowPassword((visible) => !visible)}>
+            {showPassword ? "Hide" : "Show"}
+          </button>
+          <button type="submit" disabled={disabled || password.length < 8}>Reset</button>
+        </div>
+      </label>
+    </form>
+  );
+}
+
 function AdminControlDrawer({
+  busy,
   currentUserId,
+  error,
   isOpen,
   onAddUser,
   onClose,
@@ -747,6 +731,7 @@ function AdminControlDrawer({
   const [draftUser, setDraftUser] = useState({
     email: "",
     name: "",
+    password: "",
     role: "Viewer",
     sites: [ADMIN_SITES[0]],
   });
@@ -816,26 +801,27 @@ function AdminControlDrawer({
     });
   }
 
-  function handleAddUser(event) {
+  async function handleAddUser(event) {
     event.preventDefault();
 
     const name = draftUser.name.trim();
     const email = draftUser.email.trim();
 
-    if (!name || !email) return;
+    if (!name || !email || draftUser.password.length < 8) return;
 
-    onAddUser({
-      id: `admin-user-${Date.now()}`,
+    const created = await onAddUser({
       name,
       email,
+      password: draftUser.password,
       role: draftUser.role,
-      status: "Active",
-      sites: normalizeAdminSites(draftUser.sites),
-      lastSeen: "New user",
+      sites: draftUser.role === "Admin" ? ADMIN_SITES : normalizeAdminSites(draftUser.sites),
     });
+    if (!created) return;
+
     setDraftUser({
       email: "",
       name: "",
+      password: "",
       role: "Viewer",
       sites: [ADMIN_SITES[0]],
     });
@@ -876,6 +862,8 @@ function AdminControlDrawer({
           <span><strong>{adminCount}</strong>Admins</span>
         </div>
 
+        {error && <div className="admin-message" role="alert">{error}</div>}
+
         <label className="admin-search" htmlFor="admin-user-search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8"></circle>
@@ -897,6 +885,7 @@ function AdminControlDrawer({
               <span>Name</span>
               <input
                 type="text"
+                required
                 value={draftUser.name}
                 onChange={(event) => setDraftUser((current) => ({ ...current, name: event.target.value }))}
               />
@@ -905,8 +894,22 @@ function AdminControlDrawer({
               <span>Email</span>
               <input
                 type="email"
+                required
                 value={draftUser.email}
                 onChange={(event) => setDraftUser((current) => ({ ...current, email: event.target.value }))}
+              />
+            </label>
+            <label>
+              <span>Temporary password</span>
+              <input
+                type="password"
+                required
+                minLength="8"
+                maxLength="72"
+                autoComplete="new-password"
+                placeholder="Give this to the new user"
+                value={draftUser.password}
+                onChange={(event) => setDraftUser((current) => ({ ...current, password: event.target.value }))}
               />
             </label>
             <label>
@@ -926,14 +929,18 @@ function AdminControlDrawer({
               <label key={site}>
                 <input
                   type="checkbox"
-                  checked={normalizeAdminSites(draftUser.sites).includes(site)}
+                  checked={draftUser.role === "Admin" || normalizeAdminSites(draftUser.sites).includes(site)}
+                  disabled={draftUser.role === "Admin"}
                   onChange={() => handleDraftSite(site)}
                 />
                 <span>{site}</span>
               </label>
             ))}
+            {draftUser.role === "Admin" && <small>Admins automatically receive full access to every site.</small>}
           </div>
-          <button className="admin-add-user__submit" type="submit">Add User</button>
+          <button className="admin-add-user__submit" type="submit" disabled={busy}>
+            {busy ? "Saving..." : "Add User"}
+          </button>
         </form>
 
         <div className="admin-users-list" aria-label="Managed users">
@@ -955,6 +962,7 @@ function AdminControlDrawer({
                   <span>Role</span>
                   <select
                     value={adminUser.role}
+                    disabled={busy || adminUser.id === currentUserId}
                     onChange={(event) => onUpdateUser(adminUser.id, { role: event.target.value })}
                   >
                     {ADMIN_ROLES.map((role) => (
@@ -965,6 +973,7 @@ function AdminControlDrawer({
                 <button
                   className={`admin-status-toggle ${adminUser.status === "Active" ? "is-active" : ""}`}
                   type="button"
+                  disabled={busy || adminUser.id === currentUserId}
                   onClick={() => onUpdateUser(adminUser.id, { status: adminUser.status === "Active" ? "Paused" : "Active" })}
                 >
                   {adminUser.status === "Active" ? "Pause" : "Activate"}
@@ -972,7 +981,7 @@ function AdminControlDrawer({
                 <button
                   className="admin-remove-user"
                   type="button"
-                  disabled={adminUser.id === currentUserId}
+                  disabled={busy || adminUser.id === currentUserId}
                   onClick={() => onRemoveUser(adminUser.id)}
                 >
                   Remove
@@ -984,14 +993,20 @@ function AdminControlDrawer({
                   <label key={site}>
                     <input
                       type="checkbox"
-                      checked={normalizeAdminSites(adminUser.sites).includes(site)}
+                      checked={adminUser.role === "Admin" || normalizeAdminSites(adminUser.sites).includes(site)}
+                      disabled={busy || adminUser.role === "Admin"}
                       onChange={() => handleUserSite(adminUser.id, site)}
                     />
                     <span>{site}</span>
                   </label>
                 ))}
+                {adminUser.role === "Admin" && <small>Full access</small>}
               </div>
-              <div className="admin-user-row__meta">Last seen: {adminUser.lastSeen}</div>
+              <PasswordResetControl
+                disabled={busy}
+                onReset={(password) => onUpdateUser(adminUser.id, { password })}
+              />
+              <div className="admin-user-row__meta">Last seen: {formatLastSeen(adminUser.lastSeen)}</div>
             </article>
           ))}
           {filteredUsers.length === 0 && (
@@ -1300,7 +1315,7 @@ function ActiveLinePanel({ lineId, line, onSelectLine }) {
   );
 }
 
-function MobileHeader({ activePage, adminOpen, displayName, onLiveShift, onOpenAdmin, onOpenProfile, totalSummary }) {
+function MobileHeader({ activePage, adminOpen, displayName, isAdmin, onLiveShift, onOpenAdmin, onOpenProfile, totalSummary }) {
   return (
     <header className="mobile-header" aria-label="Mobile dashboard header">
       <button className="mobile-header__profile" type="button" aria-label="Open profile summary" title={displayName} onClick={onOpenProfile}>
@@ -1327,15 +1342,17 @@ function MobileHeader({ activePage, adminOpen, displayName, onLiveShift, onOpenA
         </span>
       </button>
 
-      <button
-        className={`mobile-header__icon ${adminOpen ? "is-active" : ""}`}
-        type="button"
-        aria-label="Admin users"
-        aria-pressed={adminOpen}
-        onClick={onOpenAdmin}
-      >
-        <PersonIcon />
-      </button>
+      {isAdmin && (
+        <button
+          className={`mobile-header__icon ${adminOpen ? "is-active" : ""}`}
+          type="button"
+          aria-label="Admin users"
+          aria-pressed={adminOpen}
+          onClick={onOpenAdmin}
+        >
+          <PersonIcon />
+        </button>
+      )}
     </header>
   );
 }
@@ -1472,11 +1489,14 @@ function PlaceholderPage({ title }) {
 }
 
 function Dashboard({ user, onLogout }) {
+  const isAdmin = user?.role === "Admin";
   const [lines, setLines] = useState({});
   const [activePage, setActivePage] = useState("progress");
   const [profileOpen, setProfileOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
-  const [adminUsers, setAdminUsers] = useState(() => getInitialAdminUsers(user));
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [adminBusy, setAdminBusy] = useState(isAdmin);
+  const [adminError, setAdminError] = useState("");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [selectedLineId, setSelectedLineId] = useState(null);
   const [telemetryHistory, setTelemetryHistory] = useState({ overall: [], lines: {} });
@@ -1538,8 +1558,24 @@ function Dashboard({ user, onLogout }) {
   }, [telemetrySample]);
 
   useEffect(() => {
-    localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(adminUsers));
-  }, [adminUsers]);
+    if (!isAdmin) return undefined;
+
+    let cancelled = false;
+    adminRequest()
+      .then((data) => {
+        if (!cancelled) setAdminUsers(data.users || []);
+      })
+      .catch((error) => {
+        if (!cancelled) setAdminError(error.message);
+      })
+      .finally(() => {
+        if (!cancelled) setAdminBusy(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin]);
 
   useEffect(() => {
     const sampleTelemetry = () => {
@@ -1614,22 +1650,57 @@ function Dashboard({ user, onLogout }) {
     if (onLogout) onLogout();
   }
 
-  function handleAddAdminUser(adminUser) {
-    setAdminUsers((currentUsers) => [...currentUsers, sanitizeAdminUser(adminUser, currentUsers.length)]);
+  async function handleAddAdminUser(adminUser) {
+    setAdminBusy(true);
+    setAdminError("");
+    try {
+      const data = await adminRequest("", {
+        method: "POST",
+        body: JSON.stringify(adminUser),
+      });
+      setAdminUsers((currentUsers) => [...currentUsers, data.user]);
+      return true;
+    } catch (error) {
+      setAdminError(error.message);
+      return false;
+    } finally {
+      setAdminBusy(false);
+    }
   }
 
-  function handleUpdateAdminUser(userId, updates) {
-    setAdminUsers((currentUsers) => (
-      currentUsers.map((adminUser, index) => (
-        adminUser.id === userId
-          ? sanitizeAdminUser({ ...adminUser, ...updates }, index)
-          : adminUser
-      ))
-    ));
+  async function handleUpdateAdminUser(userId, updates) {
+    setAdminBusy(true);
+    setAdminError("");
+    try {
+      const data = await adminRequest(`/${encodeURIComponent(userId)}`, {
+        method: "PATCH",
+        body: JSON.stringify(updates),
+      });
+      setAdminUsers((currentUsers) => (
+        currentUsers.map((adminUser) => adminUser.id === userId ? data.user : adminUser)
+      ));
+      return true;
+    } catch (error) {
+      setAdminError(error.message);
+      return false;
+    } finally {
+      setAdminBusy(false);
+    }
   }
 
-  function handleRemoveAdminUser(userId) {
-    setAdminUsers((currentUsers) => currentUsers.filter((adminUser) => adminUser.id !== userId));
+  async function handleRemoveAdminUser(userId) {
+    if (!window.confirm("Remove this user? They will no longer be able to sign in.")) return;
+
+    setAdminBusy(true);
+    setAdminError("");
+    try {
+      await adminRequest(`/${encodeURIComponent(userId)}`, { method: "DELETE" });
+      setAdminUsers((currentUsers) => currentUsers.filter((adminUser) => adminUser.id !== userId));
+    } catch (error) {
+      setAdminError(error.message);
+    } finally {
+      setAdminBusy(false);
+    }
   }
 
   function handleOpenProfile() {
@@ -1671,15 +1742,19 @@ function Dashboard({ user, onLogout }) {
         onClick={() => setMobileNavOpen(false)}
       ></button>
       <ProfileCard isOpen={profileOpen} onClose={() => setProfileOpen(false)} sites={siteSummaries} user={user} />
-      <AdminControlDrawer
-        currentUserId={createCurrentAdminUser(user).id}
-        isOpen={adminOpen}
-        onAddUser={handleAddAdminUser}
-        onClose={() => setAdminOpen(false)}
-        onRemoveUser={handleRemoveAdminUser}
-        onUpdateUser={handleUpdateAdminUser}
-        users={adminUsers}
-      />
+      {isAdmin && (
+        <AdminControlDrawer
+          busy={adminBusy}
+          currentUserId={String(user.id)}
+          error={adminError}
+          isOpen={adminOpen}
+          onAddUser={handleAddAdminUser}
+          onClose={() => setAdminOpen(false)}
+          onRemoveUser={handleRemoveAdminUser}
+          onUpdateUser={handleUpdateAdminUser}
+          users={adminUsers}
+        />
+      )}
       <LineDetailModal
         lineId={selectedLineId}
         line={selectedLineId ? seededLines[selectedLineId] : null}
@@ -1690,6 +1765,7 @@ function Dashboard({ user, onLogout }) {
           activePage={activePage}
           adminOpen={adminOpen}
           displayName={displayName}
+          isAdmin={isAdmin}
           onLiveShift={handleLiveShift}
           onOpenAdmin={handleToggleAdmin}
           onOpenProfile={handleOpenProfile}
@@ -1717,17 +1793,19 @@ function Dashboard({ user, onLogout }) {
           >
             Live Shift
           </button>
-          <div className="topbar-actions">
-            <button
-              className={adminOpen ? "is-active" : ""}
-              type="button"
-              aria-label="Admin users"
-              aria-pressed={adminOpen}
-              onClick={handleToggleAdmin}
-            >
-              <PersonIcon />
-            </button>
-          </div>
+          {isAdmin && (
+            <div className="topbar-actions">
+              <button
+                className={adminOpen ? "is-active" : ""}
+                type="button"
+                aria-label="Admin users"
+                aria-pressed={adminOpen}
+                onClick={handleToggleAdmin}
+              >
+                <PersonIcon />
+              </button>
+            </div>
+          )}
         </header>
 
         {activePage === "progress" && (

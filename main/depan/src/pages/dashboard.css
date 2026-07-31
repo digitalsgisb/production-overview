@@ -2232,7 +2232,8 @@ button {
 }
 
 .admin-form-grid label:first-child,
-.admin-form-grid label:nth-child(2) {
+.admin-form-grid label:nth-child(2),
+.admin-form-grid label:nth-child(3) {
   grid-column: 1 / -1;
 }
 
@@ -2288,6 +2289,13 @@ button {
   accent-color: var(--accent-blue);
 }
 
+.admin-site-picker small {
+  align-self: center;
+  color: #8fa4c8;
+  font-size: 10px;
+  font-weight: 800;
+}
+
 .admin-add-user__submit,
 .admin-status-toggle,
 .admin-remove-user {
@@ -2303,6 +2311,22 @@ button {
 .admin-add-user__submit {
   background: linear-gradient(135deg, rgba(79, 209, 217, 0.92), rgba(79, 140, 255, 0.96));
   color: #071014;
+}
+
+.admin-add-user__submit:disabled,
+.admin-status-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.admin-message {
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 95, 124, 0.28);
+  border-radius: 8px;
+  background: rgba(255, 95, 124, 0.08);
+  color: #ffc4cf;
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .admin-users-list {
@@ -2703,6 +2727,56 @@ button {
 .mobile-hero,
 .mobile-metric-deck {
   display: none;
+}
+
+.admin-password-reset label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-password-reset label > span {
+  color: #8fa4c8;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.admin-password-reset label > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 7px;
+}
+
+.admin-password-reset input,
+.admin-password-reset button {
+  min-height: 34px;
+  border: 1px solid rgba(174, 167, 216, 0.16);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.admin-password-reset input {
+  min-width: 0;
+  padding: 0 10px;
+  background: rgba(6, 7, 13, 0.86);
+  outline: none;
+}
+
+.admin-password-reset button {
+  padding: 0 10px;
+  background: rgba(255, 255, 255, 0.045);
+  font-size: 10px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.admin-password-reset button:disabled,
+.admin-password-reset input:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
 }
 
 @media (min-width: 768px) {

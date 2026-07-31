@@ -4,8 +4,8 @@ const { ProductionLine } = require('./class.js');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require("cors");
-// const bcrypt = require("bcrypt");
 const { Pool } = require('pg');
+const { createAuthRouter } = require("./auth.js");
 require('dotenv').config();
 
 const app = express();
@@ -62,6 +62,11 @@ const localAdmin = {
     password: process.env.LOCAL_ADMIN_PASSWORD || "admin123",
     name: process.env.LOCAL_ADMIN_NAME || "Local Admin",
 };
+const auth = createAuthRouter({
+    pool,
+    hasDatabaseConfig,
+    localAdmin,
+});
 
 const Existing_ID = ['ABB4', 'ABB1', 'ABB7','ABB2','SDY1','SDY2'];
 const productionLines = new Map();
@@ -167,87 +172,11 @@ io.on('connection', (socket) => {
     });
 });
 
-app.post("/login", async(req,res) =>{
-    try {
-        const { email, password } = req.body;
-        const normalizedEmail = String(email || "").trim().toLowerCase();
-
-        if (
-            localAdmin.enabled &&
-            normalizedEmail === localAdmin.email.toLowerCase() &&
-            password === localAdmin.password
-        ) {
-            return res.json({
-                message: "Successful Login",
-                user: {
-                    id: "local-admin",
-                    email: localAdmin.email,
-                    name: localAdmin.name,
-                },
-            });
-        }
-
-        if (!hasDatabaseConfig) {
-            return res.status(503).json({
-                message: "Database is not configured locally. Use local admin access or add server .env DB settings.",
-            });
-        }
-
-        const result = await pool.query(
-            `
-            SELECT * FROM users WHERE email = $1
-            `
-            ,[email]
-        );
-
-        if (result.rows.length === 0){
-            return res.status(401).json({ message: "not found"});
-        }
-
-        const user = result.rows[0];
-
-        if (password !== user.password) {
-            return res.status(401).json({ message: "wrong password" });
-        }
-
-        res.json({
-            message: "Successful Login",
-            // token: "test-token",
-            user: {
-                id: user.id,
-                email: user.email,
-                name: user.name,
-            },
-        });
-        // const user = result.rows[0];
-        // const passwordMatch = await bcrypt.compare(password, user.password);
-        
-        // if (!passwordMatch){
-        //     return res.status(401).json({ message: "Invalid email or password"});
-        // }
-
-        // const token = jwt.sign(
-        //     {
-        //     id: user.id,
-        //     email:user.email,
-        //     },
-        //     process.env.JWT_SECRET,
-        //     { expiresIn: "1h"}
-        // );
-
-        // res.json({
-        //     message: "Successful Login",
-        //     token,
-        //     user: {
-        //         id: user.id,
-        //         email: user.email,
-        //     },
-        // });
-    } catch(error){
-
-        return res.status(500).json({ message: error.message});
-    }
-});
+app.post("/login", auth.login);
+app.get("/admin/users", auth.requireAdmin, auth.listUsers);
+app.post("/admin/users", auth.requireAdmin, auth.createUser);
+app.patch("/admin/users/:userId", auth.requireAdmin, auth.updateUser);
+app.delete("/admin/users/:userId", auth.requireAdmin, auth.removeUser);
 
 //
 // FROM NODE RED TO NODE JS

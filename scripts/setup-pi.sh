@@ -88,7 +88,7 @@ write_server_env() {
   fi
 
   echo "Creating $env_file"
-  local api_key db_host db_user db_pass db_name db_port admin_email admin_pass
+  local api_key db_host db_user db_pass db_name db_port admin_email admin_pass jwt_secret
   api_key="${API_KEY:-$(prompt_value 'Node-RED API_KEY: ' '' true)}"
   db_host="${DB_HOST:-$(prompt_value 'DB_HOST (blank to skip): ' '')}"
   db_user="${DB_USER:-$(prompt_value 'DB_USER (blank to skip): ' '')}"
@@ -96,12 +96,18 @@ write_server_env() {
   db_name="${DB_DB:-$(prompt_value 'DB_DB/name (blank to skip): ' '')}"
   db_port="${DB_PORT:-$(prompt_value 'DB_PORT [5432]: ' '5432')}"
   admin_email="${LOCAL_ADMIN_EMAIL:-$(prompt_value 'Local admin email [admin@local.test]: ' 'admin@local.test')}"
-  admin_pass="${LOCAL_ADMIN_PASSWORD:-$(prompt_value 'Local admin password [admin123]: ' 'admin123' true)}"
+  admin_pass="${LOCAL_ADMIN_PASSWORD:-$(prompt_value 'Local admin password (minimum 8 characters): ' '' true)}"
+  if [ "${#admin_pass}" -lt 8 ]; then
+    echo "ERROR: Local admin password must be at least 8 characters."
+    exit 1
+  fi
+  jwt_secret="${JWT_SECRET:-$(node -e "process.stdout.write(require('crypto').randomBytes(64).toString('hex'))")}"
 
   cat > "$env_file" <<EOF
 PORT=3200
 API_KEY=$api_key
 FRONTEND_ORIGINS=${FRONTEND_ORIGINS:-$default_origins}
+JWT_SECRET=$jwt_secret
 
 DB_HOST=$db_host
 DB_USER=$db_user
