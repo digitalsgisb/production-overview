@@ -66,6 +66,16 @@ const auth = createAuthRouter({
     pool,
     hasDatabaseConfig,
     localAdmin,
+    onGuestAccessChanged: (enabled) => {
+        if (enabled) return;
+
+        for (const socket of io.sockets.sockets.values()) {
+            if (socket.data.authUser?.role === "Guest") {
+                socket.emit("session:revoked", { reason: "Guest access has been disabled by an admin." });
+                socket.disconnect(true);
+            }
+        }
+    },
 });
 
 const Existing_ID = ['ABB4', 'ABB1', 'ABB7','ABB2','SDY1','SDY2'];
@@ -163,6 +173,8 @@ function calculateOeeFromComponents(oee, availability, performance, quality) {
 //     }
 // }
 
+io.use(auth.authenticateSocket);
+
 io.on('connection', (socket) => {
     console.log('React connected:', socket.id);
 
@@ -173,8 +185,11 @@ io.on('connection', (socket) => {
 });
 
 app.post("/login", auth.login);
+app.get("/settings/public", auth.getPublicSettings);
+app.post("/guest-session", auth.createGuestSession);
 app.get("/admin/users", auth.requireAdmin, auth.listUsers);
 app.post("/admin/users", auth.requireAdmin, auth.createUser);
+app.patch("/admin/settings/guest-access", auth.requireAdmin, auth.updateGuestAccess);
 app.patch("/admin/users/:userId", auth.requireAdmin, auth.updateUser);
 app.delete("/admin/users/:userId", auth.requireAdmin, auth.removeUser);
 

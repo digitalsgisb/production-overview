@@ -217,6 +217,10 @@ button {
   gap: 7px;
 }
 
+.guest-site-nav {
+  display: none;
+}
+
 .icon-btn {
   position: relative;
   width: 100%;
@@ -2356,6 +2360,67 @@ button {
   font-weight: 800;
 }
 
+.admin-security-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 13px;
+  border: 1px solid rgba(79, 140, 255, 0.22);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(79, 140, 255, 0.1), transparent 46%),
+    rgba(255, 255, 255, 0.035);
+}
+
+.admin-security-control > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.admin-security-control span {
+  color: #8fa4c8;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.admin-security-control strong {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.admin-security-control small {
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.admin-security-control button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(53, 227, 143, 0.28);
+  border-radius: 8px;
+  background: rgba(53, 227, 143, 0.09);
+  color: #affad5;
+  font-size: 10px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.admin-security-control button.is-enabled {
+  border-color: rgba(255, 95, 124, 0.28);
+  background: rgba(255, 95, 124, 0.09);
+  color: #ffc4cf;
+}
+
+.admin-security-control button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
 .admin-users-list {
   display: flex;
   flex-direction: column;
@@ -3009,6 +3074,10 @@ button {
     backdrop-filter: blur(18px);
   }
 
+  .mobile-header--guest {
+    grid-template-columns: minmax(0, 1fr) minmax(82px, auto);
+  }
+
   .mobile-header button {
     border: 1px solid rgba(174, 167, 216, 0.16);
     border-radius: 8px;
@@ -3166,12 +3235,47 @@ button {
   }
 
   .mobile-hero h1 {
-    margin: 0 0 13px;
+    margin: 0;
     color: var(--text-secondary);
-    font-size: 13px;
-    font-weight: 400;
+    font-size: 15px;
+    font-weight: 850;
     line-height: 1.2;
     text-align: center;
+  }
+
+  .mobile-hero__intro {
+    display: grid;
+    justify-items: center;
+    gap: 7px;
+    margin-bottom: 13px;
+  }
+
+  .mobile-hero__guest-mode {
+    min-height: 24px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0 9px;
+    border: 1px solid rgba(79, 209, 217, 0.18);
+    border-radius: 999px;
+    background: rgba(79, 209, 217, 0.07);
+    color: #8eeaf0;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .mobile-hero__guest-mode i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #35e38f;
+    box-shadow: 0 0 0 4px rgba(53, 227, 143, 0.1);
+  }
+
+  .guest-site-nav {
+    display: inline-flex;
   }
 
   .mobile-site-strip {

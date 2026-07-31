@@ -6,6 +6,7 @@ const ROLES = ["Admin", "Supervisor", "Line Leader", "Operator", "Viewer"];
 const STATUSES = ["Active", "Paused"];
 const SITES = ["Port Klang", "Sendayan"];
 const BCRYPT_ROUNDS = 12;
+const GUEST_SETTING_KEY = "guest_access_enabled";
 
 function normalizeSites(sites, role) {
     if (role === "Admin") return [...SITES];
@@ -50,10 +51,11 @@ function createUserId() {
     return `usr_${crypto.randomBytes(13).toString("hex")}`;
 }
 
-function createAuthRouter({ pool, hasDatabaseConfig, localAdmin }) {
+function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessChanged = () => {} }) {
     const configuredSecret = String(process.env.JWT_SECRET || "").trim();
     const jwtSecret = configuredSecret || crypto.randomBytes(64).toString("hex");
     let schemaPromise;
+    let settingsSchemaPromise;
 
     if (!configuredSecret) {
         console.warn("JWT_SECRET is not configured; login sessions will be invalidated when the backend restarts.");
@@ -82,12 +84,72 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin }) {
         return schemaPromise;
     }
 
+    function ensureSettingsSchema() {
+        if (!settingsSchemaPromise) {
+            settingsSchemaPromise = pool.query(`
+                CREATE TABLE IF NOT EXISTS production_overview_settings (
+                    setting_key VARCHAR(50) PRIMARY KEY,
+                    setting_value VARCHAR(20) NOT NULL,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+                INSERT INTO production_overview_settings (setting_key, setting_value)
+                VALUES ('${GUEST_SETTING_KEY}', 'true')
+                ON CONFLICT (setting_key) DO NOTHING;
+            `).catch((error) => {
+                settingsSchemaPromise = undefined;
+                throw error;
+            });
+        }
+        return settingsSchemaPromise;
+    }
+
+    async function isGuestAccessEnabled() {
+        await ensureSettingsSchema();
+        const result = await pool.query(
+            "SELECT setting_value FROM production_overview_settings WHERE setting_key = $1",
+            [GUEST_SETTING_KEY],
+        );
+        return result.rows[0]?.setting_value === "true";
+    }
+
     function signToken(user) {
         return jwt.sign(
             { role: user.role, email: user.email },
             jwtSecret,
             { subject: String(user.id), expiresIn: "8h" },
         );
+    }
+
+    async function verifySessionToken(token) {
+        const claims = jwt.verify(token, jwtSecret);
+
+        if (claims.sub === "guest" && claims.role === "Guest") {
+            if (!hasDatabaseConfig || !await isGuestAccessEnabled()) {
+                throw new Error("Guest access is disabled.");
+            }
+            return { id: "guest", role: "Guest" };
+        }
+
+        if (claims.sub === "local-admin" && claims.role === "Admin" && localAdmin.enabled) {
+            return { id: "local-admin", role: "Admin" };
+        }
+
+        if (!hasDatabaseConfig) {
+            throw new Error("The user database is not configured.");
+        }
+
+        await ensureUserSchema();
+        const result = await pool.query(
+            "SELECT id, role, status FROM users WHERE id = $1",
+            [claims.sub],
+        );
+        const user = result.rows[0];
+
+        if (!user || user.status !== "Active") {
+            throw new Error("Your login is no longer active.");
+        }
+
+        return { id: String(user.id), role: user.role };
     }
 
     async function login(request, response) {
@@ -174,23 +236,7 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin }) {
                 return response.status(401).json({ message: "Sign in is required." });
             }
 
-            const claims = jwt.verify(token, jwtSecret);
-            if (claims.sub === "local-admin" && claims.role === "Admin" && localAdmin.enabled) {
-                request.authUser = { id: "local-admin", role: "Admin" };
-                return next();
-            }
-
-            if (!ensureDatabase(request, response)) return;
-            await ensureUserSchema();
-            const result = await pool.query(
-                "SELECT id, role, status FROM users WHERE id = $1",
-                [claims.sub],
-            );
-            const user = result.rows[0];
-
-            if (!user || user.status !== "Active") {
-                return response.status(401).json({ message: "Your login is no longer active." });
-            }
+            const user = await verifySessionToken(token);
             if (user.role !== "Admin") {
                 return response.status(403).json({ message: "Admin access is required." });
             }
@@ -199,6 +245,81 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin }) {
             return next();
         } catch {
             return response.status(401).json({ message: "Your login has expired. Please sign in again." });
+        }
+    }
+
+    async function getPublicSettings(request, response) {
+        try {
+            if (!hasDatabaseConfig) {
+                return response.json({ guestAccessEnabled: false });
+            }
+            return response.json({ guestAccessEnabled: await isGuestAccessEnabled() });
+        } catch (error) {
+            console.error("Load public settings failed:", error.message);
+            return response.status(500).json({ message: "Unable to load access settings." });
+        }
+    }
+
+    async function createGuestSession(request, response) {
+        try {
+            if (!hasDatabaseConfig) {
+                return response.status(503).json({ message: "Guest access is unavailable." });
+            }
+            if (!await isGuestAccessEnabled()) {
+                return response.status(403).json({ message: "Guest access is currently disabled." });
+            }
+
+            const user = {
+                id: "guest",
+                email: "",
+                name: "Guest",
+                role: "Guest",
+                status: "Active",
+                sites: [...SITES],
+            };
+            return response.json({
+                token: signToken(user),
+                user,
+            });
+        } catch (error) {
+            console.error("Create guest session failed:", error.message);
+            return response.status(500).json({ message: "Unable to start guest access." });
+        }
+    }
+
+    async function updateGuestAccess(request, response) {
+        try {
+            if (typeof request.body?.enabled !== "boolean") {
+                return response.status(400).json({ message: "Guest access must be enabled or disabled." });
+            }
+
+            await ensureSettingsSchema();
+            await pool.query(`
+                INSERT INTO production_overview_settings (setting_key, setting_value, updated_at)
+                VALUES ($1, $2, NOW())
+                ON CONFLICT (setting_key)
+                DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = NOW()
+            `, [GUEST_SETTING_KEY, String(request.body.enabled)]);
+            await onGuestAccessChanged(request.body.enabled);
+
+            return response.json({ guestAccessEnabled: request.body.enabled });
+        } catch (error) {
+            console.error("Update guest access failed:", error.message);
+            return response.status(500).json({ message: "Unable to update guest access." });
+        }
+    }
+
+    async function authenticateSocket(socket, next) {
+        try {
+            const token = String(socket.handshake.auth?.token || "");
+            if (!token) throw new Error("Sign in is required.");
+
+            socket.data.authUser = await verifySessionToken(token);
+            return next();
+        } catch (error) {
+            const authError = new Error(error.message || "Authentication failed.");
+            authError.data = { code: "AUTH_REQUIRED" };
+            return next(authError);
         }
     }
 
@@ -369,10 +490,14 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin }) {
     }
 
     return {
+        authenticateSocket,
+        createGuestSession,
         login,
         requireAdmin,
+        getPublicSettings,
         listUsers,
         createUser,
+        updateGuestAccess,
         updateUser,
         removeUser,
     };

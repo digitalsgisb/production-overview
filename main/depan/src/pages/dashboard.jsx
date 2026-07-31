@@ -57,9 +57,9 @@ function formatLastSeen(value) {
   return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
 }
 
-async function adminRequest(path = "", options = {}) {
+async function authenticatedRequest(endpoint, options = {}) {
   const token = localStorage.getItem("token");
-  const response = await fetch(`${API_URL}/admin/users${path}`, {
+  const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -74,10 +74,29 @@ async function adminRequest(path = "", options = {}) {
   return data;
 }
 
+function adminRequest(path = "", options = {}) {
+  return authenticatedRequest(`/admin/users${path}`, options);
+}
+
+async function loadPublicSettings() {
+  const response = await fetch(`${API_URL}/settings/public`);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.message || "Unable to load access settings.");
+  return data;
+}
+
 function Sidebar({ activePage, isGuest, onSelectPage, onMenu, onLogout, isMobileNavOpen, onCloseMobileNav, sites = [], user }) {
   function handleSelectPage(page) {
     onSelectPage(page);
     onCloseMobileNav();
+  }
+
+  function handleGuestSite(siteId) {
+    onSelectPage("progress");
+    onCloseMobileNav();
+    window.requestAnimationFrame(() => {
+      document.getElementById(siteId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   }
 
   const displayName = user?.name || user?.email || "User";
@@ -123,6 +142,36 @@ function Sidebar({ activePage, isGuest, onSelectPage, onMenu, onLogout, isMobile
           </svg>
           <span className="icon-btn__tip">Progress</span>
         </button>
+
+        {isGuest && (
+          <>
+            <button
+              className="icon-btn nav-btn guest-site-nav"
+              type="button"
+              aria-label="Jump to Port Klang"
+              onClick={() => handleGuestSite("site-klang")}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 20V8l8-4 8 4v12"></path>
+                <path d="M8 20v-5h8v5"></path>
+              </svg>
+              <span className="icon-btn__tip">Klang</span>
+            </button>
+            <button
+              className="icon-btn nav-btn guest-site-nav"
+              type="button"
+              aria-label="Jump to Sendayan"
+              onClick={() => handleGuestSite("site-sendayan")}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 21h18"></path>
+                <path d="M6 21V9l6-4 6 4v12"></path>
+                <path d="M9 13h6"></path>
+              </svg>
+              <span className="icon-btn__tip">Sendayan</span>
+            </button>
+          </>
+        )}
 
         {!isGuest && (
           <>
@@ -730,10 +779,12 @@ function AdminControlDrawer({
   busy,
   currentUserId,
   error,
+  guestAccessEnabled,
   isOpen,
   onAddUser,
   onClose,
   onRemoveUser,
+  onToggleGuestAccess,
   onUpdateUser,
   users,
 }) {
@@ -873,6 +924,27 @@ function AdminControlDrawer({
         </div>
 
         {error && <div className="admin-message" role="alert">{error}</div>}
+
+        <section className="admin-security-control" aria-label="Guest access security">
+          <div>
+            <span>Guest access</span>
+            <strong>{guestAccessEnabled ? "Enabled" : "Disabled"}</strong>
+            <small>
+              {guestAccessEnabled
+                ? "Anyone with the login page can request a view-only guest session."
+                : "The guest button is hidden and existing guest sessions are disconnected."}
+            </small>
+          </div>
+          <button
+            className={guestAccessEnabled ? "is-enabled" : ""}
+            type="button"
+            disabled={busy}
+            aria-pressed={guestAccessEnabled}
+            onClick={() => onToggleGuestAccess(!guestAccessEnabled)}
+          >
+            {guestAccessEnabled ? "Disable Guest" : "Enable Guest"}
+          </button>
+        </section>
 
         <label className="admin-search" htmlFor="admin-user-search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1328,7 +1400,7 @@ function ActiveLinePanel({ lineId, line, onSelectLine }) {
 
 function MobileHeader({ activePage, adminOpen, displayName, isAdmin, isGuest, onLiveShift, onOpenAdmin, onOpenProfile, totalSummary }) {
   return (
-    <header className="mobile-header" aria-label="Mobile dashboard header">
+    <header className={`mobile-header ${isGuest ? "mobile-header--guest" : ""}`} aria-label="Mobile dashboard header">
       <button
         className="mobile-header__profile"
         type="button"
@@ -1375,12 +1447,20 @@ function MobileHeader({ activePage, adminOpen, displayName, isAdmin, isGuest, on
   );
 }
 
-function MobileHero({ displayName, totalSummary, sites }) {
+function MobileHero({ displayName, isGuest, totalSummary, sites }) {
   const firstName = displayName.split(" ")[0] || "Team";
 
   return (
     <section className="mobile-hero" aria-label="Production summary">
-      <h1>Hello, {firstName}</h1>
+      <div className="mobile-hero__intro">
+        <h1>{isGuest ? "Live production overview" : `Hello, ${firstName}`}</h1>
+        {isGuest && (
+          <span className="mobile-hero__guest-mode">
+            <i aria-hidden="true"></i>
+            Guest view · Live cards only
+          </span>
+        )}
+      </div>
       <nav className="mobile-site-strip" aria-label="Jump to production details">
         {sites.map((site) => (
           <a
@@ -1516,6 +1596,7 @@ function Dashboard({ user, onLogout }) {
   const [adminUsers, setAdminUsers] = useState([]);
   const [adminBusy, setAdminBusy] = useState(isAdmin);
   const [adminError, setAdminError] = useState("");
+  const [guestAccessEnabled, setGuestAccessEnabled] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [selectedLineId, setSelectedLineId] = useState(null);
   const [telemetryHistory, setTelemetryHistory] = useState({ overall: [], lines: {} });
@@ -1580,9 +1661,12 @@ function Dashboard({ user, onLogout }) {
     if (!isAdmin) return undefined;
 
     let cancelled = false;
-    adminRequest()
-      .then((data) => {
-        if (!cancelled) setAdminUsers(data.users || []);
+    Promise.all([adminRequest(), loadPublicSettings()])
+      .then(([userData, settings]) => {
+        if (!cancelled) {
+          setAdminUsers(userData.users || []);
+          setGuestAccessEnabled(settings.guestAccessEnabled === true);
+        }
       })
       .catch((error) => {
         if (!cancelled) setAdminError(error.message);
@@ -1624,7 +1708,11 @@ function Dashboard({ user, onLogout }) {
   }, [seededLines]);
 
   useEffect(() => {
-    const socket = io(SOCKET_URL);
+    const socket = io(SOCKET_URL, {
+      auth: {
+        token: localStorage.getItem("token"),
+      },
+    });
 
     socket.on("connect", () => {
       ALL_LINE_IDS.forEach((lineId) => socket.emit("join-line", lineId));
@@ -1647,8 +1735,18 @@ function Dashboard({ user, onLogout }) {
       }));
     });
 
+    socket.on("session:revoked", () => {
+      if (onLogout) onLogout();
+    });
+
+    socket.on("connect_error", (error) => {
+      if (error?.data?.code === "AUTH_REQUIRED" && onLogout) {
+        onLogout();
+      }
+    });
+
     return () => socket.disconnect();
-  }, []);
+  }, [onLogout]);
 
   function handleMenu() {
     if (isGuest) return;
@@ -1724,6 +1822,22 @@ function Dashboard({ user, onLogout }) {
     }
   }
 
+  async function handleToggleGuestAccess(enabled) {
+    setAdminBusy(true);
+    setAdminError("");
+    try {
+      const data = await authenticatedRequest("/admin/settings/guest-access", {
+        method: "PATCH",
+        body: JSON.stringify({ enabled }),
+      });
+      setGuestAccessEnabled(data.guestAccessEnabled === true);
+    } catch (error) {
+      setAdminError(error.message);
+    } finally {
+      setAdminBusy(false);
+    }
+  }
+
   function handleOpenProfile() {
     if (isGuest) return;
 
@@ -1773,10 +1887,12 @@ function Dashboard({ user, onLogout }) {
           busy={adminBusy}
           currentUserId={String(user.id)}
           error={adminError}
+          guestAccessEnabled={guestAccessEnabled}
           isOpen={adminOpen}
           onAddUser={handleAddAdminUser}
           onClose={() => setAdminOpen(false)}
           onRemoveUser={handleRemoveAdminUser}
+          onToggleGuestAccess={handleToggleGuestAccess}
           onUpdateUser={handleUpdateAdminUser}
           users={adminUsers}
         />
@@ -1840,7 +1956,7 @@ function Dashboard({ user, onLogout }) {
 
         {activePage === "progress" && (
           <>
-            <MobileHero displayName={displayName} totalSummary={totalSummary} sites={siteSummaries} />
+            <MobileHero displayName={displayName} isGuest={isGuest} totalSummary={totalSummary} sites={siteSummaries} />
             <MobileMetricDeck totalSummary={totalSummary} history={telemetryHistory} />
 
             <section className="dashboard-title-row">

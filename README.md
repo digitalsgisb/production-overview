@@ -147,14 +147,18 @@ site access, and remove users. Assigning the `Admin` role automatically grants
 full access to every site. Non-admin users cannot open or call the Admin Control
 features.
 
-The login screen also provides **Continue as Guest**. Guest sessions can see
-the live production summary and line cards, but cannot open line details,
-profiles, admin controls, attendance, or history.
+The login screen can provide **Continue as Guest**. Guest sessions receive a
+server-issued view-only token and can see the live production summary and line
+cards, but cannot open line details, profiles, admin controls, attendance, or
+history. An admin can enable or disable guest access from **Admin Control >
+Guest access**. Disabling it hides the guest login option and immediately
+disconnects active guest sessions.
 
 On the first database login or admin request, the backend adds the `role`,
 `status`, `sites`, and `last_seen` columns to an existing `users` table when
-they are missing. The PostgreSQL account therefore needs permission to alter
-that table for the first run.
+they are missing. It also creates the `production_overview_settings` table used
+for the guest-access switch. The PostgreSQL account therefore needs permission
+to alter and create tables for the first run.
 
 ## Check the Raspberry Pi services
 

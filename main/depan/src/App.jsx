@@ -13,7 +13,7 @@ function getStoredSites() {
 
 function App() {
   const [authUser, setAuthUser] = useState(() => {
-    // const token = localStorage.getItem("token");
+    const token = localStorage.getItem("token");
     const userId = localStorage.getItem("userId");
     const name = localStorage.getItem("name");
     const email = localStorage.getItem("email");
@@ -21,7 +21,7 @@ function App() {
     const status = localStorage.getItem("status");
     const sites = getStoredSites();
 
-    return userId ? { id: userId, email, name, role, status, sites } : null;
+    return userId && token ? { id: userId, email, name, role, status, sites } : null;
   });
 
   function handleLoginSuccess(user) {

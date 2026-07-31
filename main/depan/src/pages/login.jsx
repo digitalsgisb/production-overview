@@ -1,35 +1,69 @@
-﻿import { useState } from "react";
+﻿import { useEffect, useState } from "react";
 import "./login.css";
 
 const DEFAULT_API_URL = `${window.location.protocol}//${window.location.hostname}:3200`;
 const API_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL;
 const LOGIN_URL = `${API_URL}/login`;
+const GUEST_SESSION_URL = `${API_URL}/guest-session`;
+const PUBLIC_SETTINGS_URL = `${API_URL}/settings/public`;
 
 function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [guestAccessEnabled, setGuestAccessEnabled] = useState(false);
+  const [guestLoading, setGuestLoading] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  function handleGuestAccess() {
-    const guestUser = {
-      id: "guest",
-      email: "",
-      name: "Guest",
-      role: "Guest",
-      status: "Active",
-      sites: ["Port Klang", "Sendayan"],
-    };
+  useEffect(() => {
+    let cancelled = false;
 
-    localStorage.removeItem("token");
-    localStorage.setItem("userId", guestUser.id);
-    localStorage.setItem("email", guestUser.email);
-    localStorage.setItem("name", guestUser.name);
-    localStorage.setItem("role", guestUser.role);
-    localStorage.setItem("status", guestUser.status);
-    localStorage.setItem("sites", JSON.stringify(guestUser.sites));
-    onLoginSuccess(guestUser);
+    fetch(PUBLIC_SETTINGS_URL)
+      .then((response) => response.ok ? response.json() : { guestAccessEnabled: false })
+      .then((data) => {
+        if (!cancelled) setGuestAccessEnabled(data.guestAccessEnabled === true);
+      })
+      .catch(() => {
+        if (!cancelled) setGuestAccessEnabled(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function storeSession(token, user) {
+    localStorage.setItem("token", token);
+    localStorage.setItem("userId", user.id);
+    localStorage.setItem("email", user.email);
+    localStorage.setItem("name", user.name);
+    localStorage.setItem("role", user.role);
+    localStorage.setItem("status", user.status);
+    localStorage.setItem("sites", JSON.stringify(user.sites || []));
+    onLoginSuccess(user);
+  }
+
+  async function handleGuestAccess() {
+    setError("");
+    setGuestLoading(true);
+
+    try {
+      const response = await fetch(GUEST_SESSION_URL, { method: "POST" });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setGuestAccessEnabled(false);
+        setError(data.message || "Guest access is unavailable.");
+        return;
+      }
+
+      storeSession(data.token, data.user);
+    } catch {
+      setError("Connection to server failed");
+    } finally {
+      setGuestLoading(false);
+    }
   }
 
   async function handleSubmit(event) {
@@ -59,22 +93,7 @@ function Login({ onLoginSuccess }) {
         return;
       }
 
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("userId", data.user.id);
-      localStorage.setItem("email", data.user.email);
-      localStorage.setItem("name", data.user.name);
-      localStorage.setItem("role", data.user.role);
-      localStorage.setItem("status", data.user.status);
-      localStorage.setItem("sites", JSON.stringify(data.user.sites || []));
-
-      onLoginSuccess({
-        id: data.user.id,
-        email: data.user.email,
-        name: data.user.name,
-        role: data.user.role,
-        status: data.user.status,
-        sites: data.user.sites || [],
-      });
+      storeSession(data.token, data.user);
     } catch {
       setError("Connection to server failed");
     } finally {
@@ -149,12 +168,16 @@ function Login({ onLoginSuccess }) {
               {loading ? "Logging in..." : "Log In"}
             </button>
 
-            <div className="login-divider"><span>or</span></div>
+            {guestAccessEnabled && (
+              <>
+                <div className="login-divider"><span>or</span></div>
 
-            <button className="guest-btn" type="button" disabled={loading} onClick={handleGuestAccess}>
-              Continue as Guest
-            </button>
-            <p className="guest-access-note">View live production cards without access to details or controls.</p>
+                <button className="guest-btn" type="button" disabled={loading || guestLoading} onClick={handleGuestAccess}>
+                  {guestLoading ? "Opening guest view..." : "Continue as Guest"}
+                </button>
+                <p className="guest-access-note">View live production cards without access to details or controls.</p>
+              </>
+            )}
           </form>
         </section>
       </section>
