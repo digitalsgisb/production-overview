@@ -12,6 +12,26 @@ function Login({ onLoginSuccess }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  function handleGuestAccess() {
+    const guestUser = {
+      id: "guest",
+      email: "",
+      name: "Guest",
+      role: "Guest",
+      status: "Active",
+      sites: ["Port Klang", "Sendayan"],
+    };
+
+    localStorage.removeItem("token");
+    localStorage.setItem("userId", guestUser.id);
+    localStorage.setItem("email", guestUser.email);
+    localStorage.setItem("name", guestUser.name);
+    localStorage.setItem("role", guestUser.role);
+    localStorage.setItem("status", guestUser.status);
+    localStorage.setItem("sites", JSON.stringify(guestUser.sites));
+    onLoginSuccess(guestUser);
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
@@ -128,6 +148,13 @@ function Login({ onLoginSuccess }) {
             <button className="submit-btn" type="submit" disabled={loading}>
               {loading ? "Logging in..." : "Log In"}
             </button>
+
+            <div className="login-divider"><span>or</span></div>
+
+            <button className="guest-btn" type="button" disabled={loading} onClick={handleGuestAccess}>
+              Continue as Guest
+            </button>
+            <p className="guest-access-note">View live production cards without access to details or controls.</p>
           </form>
         </section>
       </section>

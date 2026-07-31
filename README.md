@@ -147,6 +147,10 @@ site access, and remove users. Assigning the `Admin` role automatically grants
 full access to every site. Non-admin users cannot open or call the Admin Control
 features.
 
+The login screen also provides **Continue as Guest**. Guest sessions can see
+the live production summary and line cards, but cannot open line details,
+profiles, admin controls, attendance, or history.
+
 On the first database login or admin request, the backend adds the `role`,
 `status`, `sites`, and `last_seen` columns to an existing `users` table when
 they are missing. The PostgreSQL account therefore needs permission to alter

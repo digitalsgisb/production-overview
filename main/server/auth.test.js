@@ -2,11 +2,11 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { createUserId, normalizeSites, toPublicUser, validatePassword } = require("./auth.js");
 
-test("new database users receive a UUID string", () => {
-    assert.match(
-        createUserId(),
-        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
-    );
+test("new database user IDs fit the existing varchar(30) column", () => {
+    const userId = createUserId();
+
+    assert.equal(userId.length, 30);
+    assert.match(userId, /^usr_[0-9a-f]{26}$/);
 });
 
 test("admins always receive access to every site", () => {

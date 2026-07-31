@@ -74,7 +74,7 @@ async function adminRequest(path = "", options = {}) {
   return data;
 }
 
-function Sidebar({ activePage, onSelectPage, onMenu, onLogout, isMobileNavOpen, onCloseMobileNav, sites = [], user }) {
+function Sidebar({ activePage, isGuest, onSelectPage, onMenu, onLogout, isMobileNavOpen, onCloseMobileNav, sites = [], user }) {
   function handleSelectPage(page) {
     onSelectPage(page);
     onCloseMobileNav();
@@ -93,11 +93,17 @@ function Sidebar({ activePage, onSelectPage, onMenu, onLogout, isMobileNavOpen, 
           </div>
         </div>
 
-        <button className="sidebar-user" type="button" aria-label="Open profile summary" onClick={onMenu}>
+        <button
+          className="sidebar-user"
+          type="button"
+          aria-label={isGuest ? "Guest view-only access" : "Open profile summary"}
+          disabled={isGuest}
+          onClick={onMenu}
+        >
           <span className="sidebar-user__avatar"><PersonIcon /></span>
           <span className="sidebar-user__meta">
             <strong>{displayName}</strong>
-            <small>Control room</small>
+            <small>{isGuest ? "View only" : "Control room"}</small>
           </span>
         </button>
 
@@ -118,37 +124,41 @@ function Sidebar({ activePage, onSelectPage, onMenu, onLogout, isMobileNavOpen, 
           <span className="icon-btn__tip">Progress</span>
         </button>
 
-        <button
-          className={`icon-btn nav-btn ${activePage === "attendance" ? "is-active" : ""}`}
-          type="button"
-          aria-label="Attendance"
-          aria-pressed={activePage === "attendance"}
-          onClick={() => handleSelectPage("attendance")}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="4" width="18" height="18" rx="2"></rect>
-            <line x1="16" y1="2" x2="16" y2="6"></line>
-            <line x1="8" y1="2" x2="8" y2="6"></line>
-            <line x1="3" y1="10" x2="21" y2="10"></line>
-            <path d="m9 16 2 2 4-4"></path>
-          </svg>
-          <span className="icon-btn__tip">Attendance</span>
-        </button>
+        {!isGuest && (
+          <>
+            <button
+              className={`icon-btn nav-btn ${activePage === "attendance" ? "is-active" : ""}`}
+              type="button"
+              aria-label="Attendance"
+              aria-pressed={activePage === "attendance"}
+              onClick={() => handleSelectPage("attendance")}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+                <path d="m9 16 2 2 4-4"></path>
+              </svg>
+              <span className="icon-btn__tip">Attendance</span>
+            </button>
 
-        <button
-          className={`icon-btn nav-btn ${activePage === "history" ? "is-active" : ""}`}
-          type="button"
-          aria-label="History"
-          aria-pressed={activePage === "history"}
-          onClick={() => handleSelectPage("history")}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 12a9 9 0 1 0 3-6.7"></path>
-            <path d="M3 4v5h5"></path>
-            <path d="M12 7v5l4 2"></path>
-          </svg>
-          <span className="icon-btn__tip">History</span>
-        </button>
+            <button
+              className={`icon-btn nav-btn ${activePage === "history" ? "is-active" : ""}`}
+              type="button"
+              aria-label="History"
+              aria-pressed={activePage === "history"}
+              onClick={() => handleSelectPage("history")}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+                <path d="M3 4v5h5"></path>
+                <path d="M12 7v5l4 2"></path>
+              </svg>
+              <span className="icon-btn__tip">History</span>
+            </button>
+          </>
+        )}
       </nav>
 
       <div className="sidebar-sites" aria-label="Active sites">
@@ -1033,7 +1043,7 @@ function createFallbackLine(lineId) {
   };
 }
 
-function ProductionSection({ id, title, lineIds, lines, onSelectLine }) {
+function ProductionSection({ id, title, lineIds, lines, onSelectLine, readOnly = false }) {
   const sectionLines = lineIds.map((lineId) => lines[lineId] ?? createFallbackLine(lineId));
   const runningCount = sectionLines.filter((line) => {
     const status = String(getLineValue(line, ["machine_mode", "mode", "status"], "offline"))
@@ -1066,6 +1076,7 @@ function ProductionSection({ id, title, lineIds, lines, onSelectLine }) {
             lineId={lineId}
             line={lines[lineId] ?? createFallbackLine(lineId)}
             onSelectLine={onSelectLine}
+            readOnly={readOnly}
           />
         ))}
       </div>
@@ -1315,10 +1326,17 @@ function ActiveLinePanel({ lineId, line, onSelectLine }) {
   );
 }
 
-function MobileHeader({ activePage, adminOpen, displayName, isAdmin, onLiveShift, onOpenAdmin, onOpenProfile, totalSummary }) {
+function MobileHeader({ activePage, adminOpen, displayName, isAdmin, isGuest, onLiveShift, onOpenAdmin, onOpenProfile, totalSummary }) {
   return (
     <header className="mobile-header" aria-label="Mobile dashboard header">
-      <button className="mobile-header__profile" type="button" aria-label="Open profile summary" title={displayName} onClick={onOpenProfile}>
+      <button
+        className="mobile-header__profile"
+        type="button"
+        aria-label={isGuest ? "Guest view-only access" : "Open profile summary"}
+        title={displayName}
+        disabled={isGuest}
+        onClick={onOpenProfile}
+      >
         <span className="mobile-header__avatar">
           <img src="/pwa-192x192.png" alt="" />
         </span>
@@ -1490,6 +1508,7 @@ function PlaceholderPage({ title }) {
 
 function Dashboard({ user, onLogout }) {
   const isAdmin = user?.role === "Admin";
+  const isGuest = user?.role === "Guest";
   const [lines, setLines] = useState({});
   const [activePage, setActivePage] = useState("progress");
   const [profileOpen, setProfileOpen] = useState(false);
@@ -1632,6 +1651,8 @@ function Dashboard({ user, onLogout }) {
   }, []);
 
   function handleMenu() {
+    if (isGuest) return;
+
     if (window.matchMedia("(max-width: 767px)").matches) {
       setMobileNavOpen((open) => !open);
       setProfileOpen(false);
@@ -1704,6 +1725,8 @@ function Dashboard({ user, onLogout }) {
   }
 
   function handleOpenProfile() {
+    if (isGuest) return;
+
     setProfileOpen(true);
     setAdminOpen(false);
     setMobileNavOpen(false);
@@ -1727,6 +1750,7 @@ function Dashboard({ user, onLogout }) {
     <div className="app-shell">
       <Sidebar
         activePage={activePage}
+        isGuest={isGuest}
         onSelectPage={setActivePage}
         onMenu={handleMenu}
         onLogout={handleLogout}
@@ -1741,7 +1765,9 @@ function Dashboard({ user, onLogout }) {
         aria-label="Close navigation"
         onClick={() => setMobileNavOpen(false)}
       ></button>
-      <ProfileCard isOpen={profileOpen} onClose={() => setProfileOpen(false)} sites={siteSummaries} user={user} />
+      {!isGuest && (
+        <ProfileCard isOpen={profileOpen} onClose={() => setProfileOpen(false)} sites={siteSummaries} user={user} />
+      )}
       {isAdmin && (
         <AdminControlDrawer
           busy={adminBusy}
@@ -1755,17 +1781,20 @@ function Dashboard({ user, onLogout }) {
           users={adminUsers}
         />
       )}
-      <LineDetailModal
-        lineId={selectedLineId}
-        line={selectedLineId ? seededLines[selectedLineId] : null}
-        onClose={() => setSelectedLineId(null)}
-      />
+      {!isGuest && (
+        <LineDetailModal
+          lineId={selectedLineId}
+          line={selectedLineId ? seededLines[selectedLineId] : null}
+          onClose={() => setSelectedLineId(null)}
+        />
+      )}
       <main className="dashboard-content">
         <MobileHeader
           activePage={activePage}
           adminOpen={adminOpen}
           displayName={displayName}
           isAdmin={isAdmin}
+          isGuest={isGuest}
           onLiveShift={handleLiveShift}
           onOpenAdmin={handleToggleAdmin}
           onOpenProfile={handleOpenProfile}
@@ -1776,13 +1805,14 @@ function Dashboard({ user, onLogout }) {
           <button
             className="user-chip"
             type="button"
-            aria-label="Open profile summary"
+            aria-label={isGuest ? "Guest view-only access" : "Open profile summary"}
+            disabled={isGuest}
             onClick={handleOpenProfile}
           >
             <span className="user-chip__avatar"><PersonIcon /></span>
             <span className="user-chip__text">
               <span>{displayName}</span>
-              <small>Control room</small>
+              <small>{isGuest ? "View only" : "Control room"}</small>
             </span>
           </button>
           <button
@@ -1820,12 +1850,14 @@ function Dashboard({ user, onLogout }) {
               </div>
             </section>
 
-            <section className="command-grid">
-              <div className="command-main">
-                <LiveFocusPanel history={telemetryHistory} totalSummary={totalSummary} sites={siteSummaries} />
-              </div>
-              <PortfolioPanel sites={siteSummaries} totalSummary={totalSummary} />
-            </section>
+            {!isGuest && (
+              <section className="command-grid">
+                <div className="command-main">
+                  <LiveFocusPanel history={telemetryHistory} totalSummary={totalSummary} sites={siteSummaries} />
+                </div>
+                <PortfolioPanel sites={siteSummaries} totalSummary={totalSummary} />
+              </section>
+            )}
 
             <section className="summary-grid" aria-label="Production overview summary">
               <SummaryCard
@@ -1848,11 +1880,13 @@ function Dashboard({ user, onLogout }) {
               />
             </section>
 
-            <ActiveLinePanel
-              lineId={focusLineId}
-              line={seededLines[focusLineId]}
-              onSelectLine={setSelectedLineId}
-            />
+            {!isGuest && (
+              <ActiveLinePanel
+                lineId={focusLineId}
+                line={seededLines[focusLineId]}
+                onSelectLine={setSelectedLineId}
+              />
+            )}
 
             <ProductionSection
               id="site-klang"
@@ -1860,6 +1894,7 @@ function Dashboard({ user, onLogout }) {
               lineIds={PORT_KLANG_LINES}
               lines={seededLines}
               onSelectLine={setSelectedLineId}
+              readOnly={isGuest}
             />
             <ProductionSection
               id="site-sendayan"
@@ -1867,6 +1902,7 @@ function Dashboard({ user, onLogout }) {
               lineIds={SENDAYAN_LINES}
               lines={seededLines}
               onSelectLine={setSelectedLineId}
+              readOnly={isGuest}
             />
           </>
         )}

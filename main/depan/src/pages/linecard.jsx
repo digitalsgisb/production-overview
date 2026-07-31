@@ -56,7 +56,7 @@ const STATUS_CONFIG = {
     return "#ef3f5f";
   }
 
-  function LineCard({ lineId, line, onSelectLine }) {
+  function LineCard({ lineId, line, onSelectLine, readOnly = false }) {
     const status = getLineValue(line, ["machine_mode", "mode", "status"], "offline");
     const count = toNumber(getLineValue(line, ["product_count", "count"], 0));
     const target = toNumber(getLineValue(line, ["target", "hourly_plan"], 0));
@@ -76,13 +76,17 @@ const STATUS_CONFIG = {
     const ringValue = Math.max(0, Math.min(100, oee)) * 3.6;
     const oeeColor = getOeeColor(oee);
 
+    const CardElement = readOnly ? "article" : "button";
+
     return (
-      <button
-        className="line-card"
-        type="button"
+      <CardElement
+        className={`line-card ${readOnly ? "line-card--readonly" : ""}`}
+        {...(!readOnly && {
+          type: "button",
+          onClick: () => onSelectLine(lineId),
+          "aria-label": `Open ${line?.line_id ?? lineId} details`,
+        })}
         style={{ "--status-color": cfg.bg, "--status-fg": cfg.fg, "--oee-color": oeeColor, "--oee-angle": `${ringValue}deg` }}
-        onClick={() => onSelectLine(lineId)}
-        aria-label={`Open ${line?.line_id ?? lineId} details`}
       >
         <div className="line-card__body">
           <div className="line-card__top">
@@ -143,7 +147,7 @@ const STATUS_CONFIG = {
             </div>
           </div>
         </div>
-      </button>
+      </CardElement>
     );
   }
 

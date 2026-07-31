@@ -177,6 +177,18 @@ button {
   font-weight: 900;
 }
 
+.sidebar-user:disabled,
+.user-chip:disabled,
+.mobile-header__profile:disabled {
+  cursor: default;
+}
+
+.sidebar-user:disabled:hover,
+.user-chip:disabled:hover {
+  border-color: var(--card-border);
+  background: transparent;
+}
+
 .person-icon {
   width: 62%;
   height: 62%;
@@ -400,6 +412,11 @@ button {
 .topbar-actions button:hover {
   border-color: rgba(79, 140, 255, 0.34);
   background: rgba(79, 140, 255, 0.09);
+}
+
+.user-chip:disabled:hover {
+  border-color: var(--card-border);
+  background: rgba(255, 255, 255, 0.045);
 }
 
 .live-shift-btn.is-active {
@@ -1454,6 +1471,16 @@ button {
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
+}
+
+.line-card--readonly {
+  cursor: default;
+}
+
+.line-card--readonly:hover {
+  border-color: var(--card-border);
+  box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  transform: none;
 }
 
 .line-card__identity {

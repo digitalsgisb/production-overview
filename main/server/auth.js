@@ -47,7 +47,7 @@ function validatePassword(value) {
 }
 
 function createUserId() {
-    return crypto.randomUUID();
+    return `usr_${crypto.randomBytes(13).toString("hex")}`;
 }
 
 function createAuthRouter({ pool, hasDatabaseConfig, localAdmin }) {
