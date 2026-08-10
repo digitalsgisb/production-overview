@@ -147,9 +147,9 @@ function Wallboard({ onLogout }) {
   return (
     <main className="wallboard">
       <header className="wallboard__header">
-        <div className="wallboard__brand"><img src="/sugihara-grand-logo.png" alt="Sugihara Grand Industries" /><div><span>Live production control</span><h1>Factory Overview</h1></div></div>
+        <div className="wallboard__brand"><img src="/sugihara-grand-logo.png" alt="Sugihara Grand Industries" /><div><span>Factory Monitoring · Live Shift</span><h1>Production Control Center</h1></div></div>
         <div className="wallboard__header-right">
-          <div className={`wallboard__connection ${connected ? "is-live" : ""}`}><span aria-hidden="true"></span>{connected ? "Live data" : "Reconnecting"}</div>
+          {!connected && <div className="wallboard__connection"><span aria-hidden="true"></span>Data feed reconnecting</div>}
           <div className="wallboard__clock"><strong>{now.toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit", hour12: false })}</strong><span>{now.toLocaleDateString("en-MY", { weekday: "long", day: "2-digit", month: "short", year: "numeric" })}</span></div>
           <button className="wallboard__icon-btn" type="button" onClick={toggleFullscreen} aria-label={isFullscreen ? "Exit full screen" : "Enter full screen"} title={isFullscreen ? "Exit full screen" : "Enter full screen"}>
             {isFullscreen ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" /></svg> : <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" /></svg>}
