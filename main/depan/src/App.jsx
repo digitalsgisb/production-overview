@@ -1,6 +1,7 @@
 ﻿import { useState } from "react";
 import Dashboard from "./pages/dashboard.jsx";
 import Login from "./pages/login.jsx";
+import Wallboard from "./pages/wallboard.jsx";
 
 function getStoredSites() {
   try {
@@ -41,6 +42,10 @@ function App() {
 
   if (!authUser) {
     return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  if (window.location.pathname.replace(/\/+$/, "") === "/wallboard") {
+    return <Wallboard user={authUser} onLogout={handleLogout} />;
   }
 
   return <Dashboard user={authUser} onLogout={handleLogout} />;

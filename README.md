@@ -6,6 +6,19 @@ Live production dashboard with:
 - Node.js backend in `main/server`
 - Raspberry Pi setup and update script in `scripts/setup-pi.sh`
 
+## TV wallboard
+
+After signing in, select the TV icon in the dashboard header to open the
+large-format factory wallboard. It is also available directly at:
+
+```text
+http://<pi-ip>:5173/wallboard
+```
+
+Select the full-screen icon in the wallboard header before leaving it on the
+factory TV. The wallboard uses the same protected live production feed and
+stored browser session as the normal dashboard.
+
 Production lines send data to the backend through HTTP. The backend saves the
 data to PostgreSQL and sends successful updates to the React dashboard through
 WebSocket.

@@ -1400,7 +1400,7 @@ function ActiveLinePanel({ lineId, line, onSelectLine }) {
 
 function MobileHeader({ activePage, adminOpen, displayName, isAdmin, isGuest, onLiveShift, onOpenAdmin, onOpenProfile, totalSummary }) {
   return (
-    <header className={`mobile-header ${isGuest ? "mobile-header--guest" : ""}`} aria-label="Mobile dashboard header">
+    <header className={`mobile-header ${isGuest ? "mobile-header--guest" : ""} ${isAdmin ? "mobile-header--admin" : ""}`} aria-label="Mobile dashboard header">
       <button
         className="mobile-header__profile"
         type="button"
@@ -1429,6 +1429,20 @@ function MobileHeader({ activePage, adminOpen, displayName, isAdmin, isGuest, on
           <small>OEE</small>
           <strong>{formatPercent(totalSummary.oee)}%</strong>
         </span>
+      </button>
+
+      <button
+        className="mobile-header__icon mobile-header__wallboard"
+        type="button"
+        aria-label="Open TV wallboard"
+        title="Wallboard"
+        onClick={() => window.location.assign("/wallboard")}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="13" rx="2"></rect>
+          <path d="M8 21h8M12 17v4"></path>
+        </svg>
+        <span>TV</span>
       </button>
 
       {isAdmin && (
@@ -1932,8 +1946,21 @@ function Dashboard({ user, onLogout }) {
           >
             Live Shift
           </button>
-          {isAdmin && (
-            <div className="topbar-actions">
+          <div className="topbar-actions">
+            <button
+              className="wallboard-launch"
+              type="button"
+              aria-label="Open TV wallboard"
+              title="Open TV wallboard"
+              onClick={() => window.location.assign("/wallboard")}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="13" rx="2"></rect>
+                <path d="M8 21h8M12 17v4"></path>
+              </svg>
+              <span>Wallboard</span>
+            </button>
+            {isAdmin && (
               <button
                 className={adminOpen ? "is-active" : ""}
                 type="button"
@@ -1943,8 +1970,8 @@ function Dashboard({ user, onLogout }) {
               >
                 <PersonIcon />
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </header>
 
         {activePage === "progress" && (
