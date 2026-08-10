@@ -63,16 +63,16 @@ function WallboardLineCard({ lineId, line }) {
   const model = lineValue(line, ["model"], "No active model");
   const components = [["Availability", lineValue(line, ["availability_pct", "availability_pctm"])], ["Performance", lineValue(line, ["performance_pct"])], ["Quality", lineValue(line, ["quality_pct"])] ];
   return (
-    <article className={`wall-line wall-line--${oeeTone(oee)}`} style={{ "--line-status": status.color, "--line-progress": `${progress}%`, "--wall-oee-angle": `${clampPercent(oee) * 3.6}deg` }}>
+    <article className={`wall-line wall-line--${oeeTone(oee)}`} style={{ "--line-status": status.color, "--line-progress": `${progress}%` }}>
       <div className="wall-line__head">
         <div className="wall-line__identity">
-          <span className="wall-line__site">{getSiteName(lineId)} · Line</span>
+          <span className="wall-line__site">Line · {getSiteName(lineId)}</span>
           <h2>{line?.line_id || lineId}</h2>
           <div className="wall-line__status"><span aria-hidden="true"></span>{status.label}</div>
         </div>
-        <div className="wall-line__oee-ring" aria-label={`OEE ${formatPercent(oee)} percent`}>
-          <strong>{formatPercent(oee)}%</strong>
+        <div className="wall-line__oee-value" aria-label={`OEE ${formatPercent(oee)} percent`}>
           <span>OEE</span>
+          <strong>{formatPercent(oee)}%</strong>
         </div>
       </div>
       <div className="wall-line__model">
