@@ -100,8 +100,8 @@ function WallboardLineCard({ lineId, line }) {
   );
 }
 
-function SummaryMetric({ label, value, detail, tone = "default", progress }) {
-  return <div className={`wall-summary__metric wall-summary__metric--${tone}`}><span>{label}</span><strong>{value}</strong>{detail && <small>{detail}</small>}{progress !== undefined && <div className="wall-summary__track" aria-hidden="true"><span style={{ width: `${clampPercent(progress)}%` }}></span></div>}</div>;
+function SummaryMetric({ label, value, detail, tone = "default", progress, emphasis = false }) {
+  return <div className={`wall-summary__metric wall-summary__metric--${tone} ${emphasis ? "is-emphasis" : ""}`}><span>{label}</span><strong>{value}</strong>{detail && <small>{detail}</small>}{progress !== undefined && <div className="wall-summary__track" aria-hidden="true"><span style={{ width: `${clampPercent(progress)}%` }}></span></div>}</div>;
 }
 
 function Wallboard({ onLogout }) {
@@ -160,10 +160,10 @@ function Wallboard({ onLogout }) {
         </div>
       </header>
       <section className="wall-summary" aria-label="Factory summary">
-        <SummaryMetric label="OEE" value={`${formatPercent(summary.oee)}%`} detail={`${summary.running}/${ALL_LINE_IDS.length} running`} tone={oeeTone(summary.oee)} />
+        <SummaryMetric label="OEE" value={`${formatPercent(summary.oee)}%`} detail={`${summary.running}/${ALL_LINE_IDS.length} running`} tone={oeeTone(summary.oee)} emphasis />
         <SummaryMetric label="Output" value={summary.actual.toLocaleString()} detail={`Plan ${summary.target.toLocaleString()}`} tone="blue" />
         <SummaryMetric label="Plan" value={`${Math.round(summary.progress)}%`} detail={getBalanceDetail(summary.planBalance)} tone="cyan" progress={summary.progress} />
-        <SummaryMetric label="Reject" value={summary.rejects.toLocaleString()} tone={summary.rejects > 0 ? "alert" : "good"} />
+        <SummaryMetric label="Reject" value={summary.rejects.toLocaleString()} tone={summary.rejects > 0 ? "alert" : "good"} emphasis={summary.rejects > 0} />
       </section>
       <section className="wallboard__lines" aria-label="Live production lines">
         {ALL_LINE_IDS.map((lineId) => <WallboardLineCard key={lineId} lineId={lineId} line={lines[lineId] || fallbackLine(lineId)} />)}
