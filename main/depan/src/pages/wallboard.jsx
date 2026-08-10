@@ -62,13 +62,13 @@ function WallboardLineCard({ lineId, line }) {
   const rejects = numberValue(lineValue(line, ["product_reject", "reject"]));
   const progress = target > 0 ? clampPercent((count / target) * 100) : 0;
   const planBalance = count - target;
-  const model = lineValue(line, ["model"], "No active model");
+  const model = lineValue(line, ["model"], "No model");
   const components = [["Availability", lineValue(line, ["availability_pct", "availability_pctm"])], ["Performance", lineValue(line, ["performance_pct"])], ["Quality", lineValue(line, ["quality_pct"])] ];
   return (
     <article className={`wall-line wall-line--${oeeTone(oee)} ${status.key === "offline" ? "is-offline" : ""}`} style={{ "--line-status": status.color, "--line-progress": `${progress}%` }}>
       <div className="wall-line__head">
         <div className="wall-line__identity">
-          <span className="wall-line__site">Line · {getSiteName(lineId)}</span>
+          <span className="wall-line__site">{getSiteName(lineId)}</span>
           <h2>{line?.line_id || lineId}</h2>
           <div className="wall-line__status"><span aria-hidden="true"></span>{status.label}</div>
         </div>
@@ -78,11 +78,11 @@ function WallboardLineCard({ lineId, line }) {
         </div>
       </div>
       <div className="wall-line__model">
-        <span>Current Model</span>
+        <span>Model</span>
         <strong>{model}</strong>
       </div>
       <div className="wall-line__progress">
-        <div><span>Plan vs Actual</span><strong>{Math.round(progress)}%</strong></div>
+        <div><span>Progress</span><strong>{Math.round(progress)}%</strong></div>
         <div className="wall-line__track"><span></span></div>
       </div>
       <div className="wall-line__components">
@@ -92,7 +92,7 @@ function WallboardLineCard({ lineId, line }) {
         <div><span>Actual</span><strong>{count.toLocaleString()}</strong></div>
         <div><span>Plan</span><strong>{target.toLocaleString()}</strong></div>
         <div className={`wall-line__balance ${planBalance < 0 ? "is-behind" : planBalance > 0 ? "is-ahead" : ""}`}>
-          <span>Plan Balance</span><strong>{formatSigned(planBalance)}</strong><small>{getBalanceDetail(planBalance)}</small>
+          <span>Balance</span><strong>{formatSigned(planBalance)}</strong><small>{getBalanceDetail(planBalance)}</small>
         </div>
         <div className={rejects > 0 ? "has-rejects" : ""}><span>Reject</span><strong>{rejects.toLocaleString()}</strong></div>
       </div>
@@ -101,7 +101,7 @@ function WallboardLineCard({ lineId, line }) {
 }
 
 function SummaryMetric({ label, value, detail, tone = "default", progress }) {
-  return <div className={`wall-summary__metric wall-summary__metric--${tone}`}><span>{label}</span><strong>{value}</strong><small>{detail}</small>{progress !== undefined && <div className="wall-summary__track" aria-hidden="true"><span style={{ width: `${clampPercent(progress)}%` }}></span></div>}</div>;
+  return <div className={`wall-summary__metric wall-summary__metric--${tone}`}><span>{label}</span><strong>{value}</strong>{detail && <small>{detail}</small>}{progress !== undefined && <div className="wall-summary__track" aria-hidden="true"><span style={{ width: `${clampPercent(progress)}%` }}></span></div>}</div>;
 }
 
 function Wallboard({ onLogout }) {
@@ -149,7 +149,7 @@ function Wallboard({ onLogout }) {
   return (
     <main className="wallboard">
       <header className="wallboard__header">
-        <div className="wallboard__brand"><img src="/sugihara-grand-white.png" alt="Sugihara Grand Industries" /><div><span>Factory Monitoring · Live Shift</span><h1>Production Control Center</h1></div></div>
+        <div className="wallboard__brand"><img src="/sugihara-grand-white.png" alt="Sugihara Grand Industries" /><div><h1>Production Control Center</h1></div></div>
         <div className="wallboard__header-right">
           {!connected && <div className="wallboard__connection"><span aria-hidden="true"></span>Data feed reconnecting</div>}
           <div className="wallboard__clock"><strong>{now.toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit", hour12: false })}</strong><span>{now.toLocaleDateString("en-MY", { weekday: "long", day: "2-digit", month: "short", year: "numeric" })}</span></div>
@@ -160,10 +160,10 @@ function Wallboard({ onLogout }) {
         </div>
       </header>
       <section className="wall-summary" aria-label="Factory summary">
-        <SummaryMetric label="Overall OEE" value={`${formatPercent(summary.oee)}%`} detail={`${summary.running} of ${ALL_LINE_IDS.length} lines running`} tone={oeeTone(summary.oee)} />
-        <SummaryMetric label="Total Output" value={summary.actual.toLocaleString()} detail={`Target ${summary.target.toLocaleString()}`} tone="blue" />
-        <SummaryMetric label="Plan Progress" value={`${Math.round(summary.progress)}%`} detail={`${formatSigned(summary.planBalance)} · ${getBalanceDetail(summary.planBalance)}`} tone="cyan" progress={summary.progress} />
-        <SummaryMetric label="Total Reject" value={summary.rejects.toLocaleString()} detail="Current production shift" tone={summary.rejects > 0 ? "alert" : "good"} />
+        <SummaryMetric label="OEE" value={`${formatPercent(summary.oee)}%`} detail={`${summary.running}/${ALL_LINE_IDS.length} running`} tone={oeeTone(summary.oee)} />
+        <SummaryMetric label="Output" value={summary.actual.toLocaleString()} detail={`Plan ${summary.target.toLocaleString()}`} tone="blue" />
+        <SummaryMetric label="Plan" value={`${Math.round(summary.progress)}%`} detail={getBalanceDetail(summary.planBalance)} tone="cyan" progress={summary.progress} />
+        <SummaryMetric label="Reject" value={summary.rejects.toLocaleString()} tone={summary.rejects > 0 ? "alert" : "good"} />
       </section>
       <section className="wallboard__lines" aria-label="Live production lines">
         {ALL_LINE_IDS.map((lineId) => <WallboardLineCard key={lineId} lineId={lineId} line={lines[lineId] || fallbackLine(lineId)} />)}
