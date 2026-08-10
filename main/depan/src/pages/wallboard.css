@@ -32,7 +32,6 @@
 .wall-summary { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: clamp(8px, .7vw, 12px); overflow: visible; background: transparent; }
 .wall-summary__metric { --metric-color: #35cddd; position: relative; min-height: clamp(74px, 8.5vh, 96px); display: grid; grid-template-columns: minmax(0, 1fr) auto; align-content: center; gap: 4px 16px; overflow: hidden; padding: clamp(11px, 1vw, 18px); border-radius: 8px; background: #102433; box-shadow: 0 12px 28px rgba(0,0,0,.14); }
 .wall-summary__metric > span { align-self: end; color: #93a3b8; font-size: clamp(10px, .72vw, 14px); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-.wall-summary__metric > span::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 7px; border-radius: 50%; background: var(--metric-color); box-shadow: 0 0 8px color-mix(in srgb, var(--metric-color) 42%, transparent); vertical-align: 1px; }
 .wall-summary__metric > strong { grid-row: span 2; align-self: center; color: white; font-family: var(--wall-font); font-size: clamp(30px, 2.6vw, 52px); font-weight: 600; line-height: 1; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
 .wall-summary__metric > small { color: #71839a; font-size: clamp(10px, .68vw, 13px); font-weight: 650; }
 .wall-summary__track { grid-column: 1 / -1; height: 5px; margin-top: 7px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.075); }
