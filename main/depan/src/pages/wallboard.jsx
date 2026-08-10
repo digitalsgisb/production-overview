@@ -26,11 +26,12 @@ function lineValue(line, keys, fallback = 0) {
 function clampPercent(value) { return Math.max(0, Math.min(100, numberValue(value))); }
 function getOee(line) {
   const explicit = numberValue(lineValue(line, ["oee"]));
-  if (explicit > 0) return clampPercent(explicit);
   const availability = numberValue(lineValue(line, ["availability_pct", "availability_pctm"]));
   const performance = numberValue(lineValue(line, ["performance_pct"]));
   const quality = numberValue(lineValue(line, ["quality_pct"]));
-  return availability > 0 || performance > 0 || quality > 0 ? clampPercent((availability * performance * quality) / 10000) : 0;
+  return availability > 0 || performance > 0 || quality > 0
+    ? clampPercent((availability + performance + quality) / 3)
+    : clampPercent(explicit);
 }
 function formatPercent(value) {
   const rounded = Number(numberValue(value).toFixed(1));
@@ -38,7 +39,8 @@ function formatPercent(value) {
 }
 function getStatus(line) {
   const raw = String(lineValue(line, ["machine_mode", "mode", "status"], "offline"));
-  return STATUS_CONFIG[raw.trim().toLowerCase().replace(/[\s-]+/g, "_")] || { label: raw || "Unknown", color: "#667386" };
+  const key = raw.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  return { ...(STATUS_CONFIG[key] || { label: raw || "Unknown", color: "#667386" }), key };
 }
 function fallbackLine(lineId) {
   return { line_id: lineId, status: "offline", product_count: 0, product_reject: 0, target: 0, availability_pct: 0, performance_pct: 0, quality_pct: 0 };
@@ -63,7 +65,7 @@ function WallboardLineCard({ lineId, line }) {
   const model = lineValue(line, ["model"], "No active model");
   const components = [["Availability", lineValue(line, ["availability_pct", "availability_pctm"])], ["Performance", lineValue(line, ["performance_pct"])], ["Quality", lineValue(line, ["quality_pct"])] ];
   return (
-    <article className={`wall-line wall-line--${oeeTone(oee)}`} style={{ "--line-status": status.color, "--line-progress": `${progress}%` }}>
+    <article className={`wall-line wall-line--${oeeTone(oee)} ${status.key === "offline" ? "is-offline" : ""}`} style={{ "--line-status": status.color, "--line-progress": `${progress}%` }}>
       <div className="wall-line__head">
         <div className="wall-line__identity">
           <span className="wall-line__site">Line · {getSiteName(lineId)}</span>

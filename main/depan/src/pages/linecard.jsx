@@ -43,11 +43,10 @@ const STATUS_CONFIG = {
   }
 
   function calculateOee(explicitOee, availability, performance, quality) {
-    if (explicitOee > 0) return explicitOee;
     if (availability > 0 || performance > 0 || quality > 0) {
-      return (availability * performance * quality) / 10000;
+      return (availability + performance + quality) / 3;
     }
-    return 0;
+    return explicitOee > 0 ? explicitOee : 0;
   }
 
   function getOeeColor(oee) {

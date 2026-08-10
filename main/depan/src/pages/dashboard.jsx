@@ -273,17 +273,15 @@ function getLineMetric(line, keys) {
 
 function getLineOee(line) {
   const explicitOee = getNumber(getLineMetric(line, ["oee"]));
-  if (explicitOee > 0) return explicitOee;
-
   const availability = getNumber(getLineMetric(line, ["availability_pct", "availability_pctm"]));
   const performance = getNumber(getLineMetric(line, ["performance_pct"]));
   const quality = getNumber(getLineMetric(line, ["quality_pct"]));
 
   if (availability > 0 || performance > 0 || quality > 0) {
-    return (availability * performance * quality) / 10000;
+    return (availability + performance + quality) / 3;
   }
 
-  return 0;
+  return explicitOee > 0 ? explicitOee : 0;
 }
 
 function formatPercent(value) {
