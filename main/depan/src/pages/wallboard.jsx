@@ -149,7 +149,7 @@ function Wallboard({ onLogout }) {
   return (
     <main className="wallboard">
       <header className="wallboard__header">
-        <div className="wallboard__brand"><img src="/sugihara-grand-logo.png" alt="Sugihara Grand Industries" /><div><span>Factory Monitoring · Live Shift</span><h1>Production Control Center</h1></div></div>
+        <div className="wallboard__brand"><img src="/sugihara-grand-white.png" alt="Sugihara Grand Industries" /><div><span>Factory Monitoring · Live Shift</span><h1>Production Control Center</h1></div></div>
         <div className="wallboard__header-right">
           {!connected && <div className="wallboard__connection"><span aria-hidden="true"></span>Data feed reconnecting</div>}
           <div className="wallboard__clock"><strong>{now.toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit", hour12: false })}</strong><span>{now.toLocaleDateString("en-MY", { weekday: "long", day: "2-digit", month: "short", year: "numeric" })}</span></div>
