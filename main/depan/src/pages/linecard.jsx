@@ -66,6 +66,13 @@ const STATUS_CONFIG = {
     const availability = toNumber(getLineValue(line, ["availability_pct", "availability_pctm"], 0));
     const performance = toNumber(getLineValue(line, ["performance_pct"], 0));
     const quality = toNumber(getLineValue(line, ["quality_pct"], 0));
+    const planBalance = count - target;
+    const balanceState = planBalance < 0 ? "behind" : planBalance > 0 ? "ahead" : "on-plan";
+    const balanceDetail = planBalance < 0
+      ? `${Math.abs(planBalance).toLocaleString()} left`
+      : planBalance > 0
+        ? `${planBalance.toLocaleString()} ahead`
+        : "On plan";
     const oee = calculateOee(explicitOee, availability, performance, quality);
     const oeeDisplay = formatPercent(oee);
     const availabilityDisplay = formatPercent(availability);
@@ -140,6 +147,13 @@ const STATUS_CONFIG = {
               <span className="stat-value">
                 {count.toLocaleString()} / {target.toLocaleString()}
               </span>
+            </div>
+            <div className={`stat stat--balance is-${balanceState}`}>
+              <span className="stat-label">Plan Balance</span>
+              <span className="stat-value">
+                {planBalance > 0 ? "+" : ""}{planBalance.toLocaleString()}
+              </span>
+              <span className="stat-subvalue">{balanceDetail}</span>
             </div>
             <div className={`stat stat--reject ${reject === 0 ? "is-zero" : ""}`}>
               <span className="stat-label">Reject</span>

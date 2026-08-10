@@ -45,6 +45,12 @@ function fallbackLine(lineId) {
 }
 function getSiteName(lineId) { return SITES.find((site) => site.lines.includes(lineId))?.name || "Production"; }
 function oeeTone(oee) { return oee >= 80 ? "good" : oee >= 60 ? "watch" : "alert"; }
+function formatSigned(value) { return `${value > 0 ? "+" : ""}${value.toLocaleString()}`; }
+function getBalanceDetail(value) {
+  if (value < 0) return `${Math.abs(value).toLocaleString()} left`;
+  if (value > 0) return `${value.toLocaleString()} ahead`;
+  return "On plan";
+}
 
 function WallboardLineCard({ lineId, line }) {
   const status = getStatus(line);
@@ -53,36 +59,47 @@ function WallboardLineCard({ lineId, line }) {
   const target = numberValue(lineValue(line, ["target", "hourly_plan"]));
   const rejects = numberValue(lineValue(line, ["product_reject", "reject"]));
   const progress = target > 0 ? clampPercent((count / target) * 100) : 0;
+  const planBalance = count - target;
   const model = lineValue(line, ["model"], "No active model");
   const components = [["Availability", lineValue(line, ["availability_pct", "availability_pctm"])], ["Performance", lineValue(line, ["performance_pct"])], ["Quality", lineValue(line, ["quality_pct"])] ];
   return (
-    <article className={`wall-line wall-line--${oeeTone(oee)}`} style={{ "--line-status": status.color, "--line-progress": `${progress}%` }}>
+    <article className={`wall-line wall-line--${oeeTone(oee)}`} style={{ "--line-status": status.color, "--line-progress": `${progress}%`, "--wall-oee-angle": `${clampPercent(oee) * 3.6}deg` }}>
       <div className="wall-line__head">
-        <div><span className="wall-line__site">{getSiteName(lineId)}</span><h2>{line?.line_id || lineId}</h2></div>
-        <div className="wall-line__status"><span aria-hidden="true"></span>{status.label}</div>
+        <div className="wall-line__identity">
+          <span className="wall-line__site">{getSiteName(lineId)} · Line</span>
+          <h2>{line?.line_id || lineId}</h2>
+          <div className="wall-line__status"><span aria-hidden="true"></span>{status.label}</div>
+        </div>
+        <div className="wall-line__oee-ring" aria-label={`OEE ${formatPercent(oee)} percent`}>
+          <strong>{formatPercent(oee)}%</strong>
+          <span>OEE</span>
+        </div>
       </div>
-      <div className="wall-line__hero">
-        <div className="wall-line__oee"><strong>{formatPercent(oee)}</strong><span>% OEE</span></div>
-        <div className="wall-line__model"><span>Current model</span><strong>{model}</strong></div>
+      <div className="wall-line__model">
+        <span>Current Model</span>
+        <strong>{model}</strong>
       </div>
       <div className="wall-line__progress">
-        <div><span>Shift progress</span><strong>{Math.round(progress)}%</strong></div>
+        <div><span>Plan vs Actual</span><strong>{Math.round(progress)}%</strong></div>
         <div className="wall-line__track"><span></span></div>
-      </div>
-      <div className="wall-line__output">
-        <div><span>Actual</span><strong>{count.toLocaleString()}</strong></div>
-        <div><span>Target</span><strong>{target.toLocaleString()}</strong></div>
-        <div className={rejects > 0 ? "has-rejects" : ""}><span>Reject</span><strong>{rejects.toLocaleString()}</strong></div>
       </div>
       <div className="wall-line__components">
         {components.map(([label, value]) => <div key={label}><span>{label[0]}</span><strong>{formatPercent(value)}%</strong></div>)}
+      </div>
+      <div className="wall-line__output">
+        <div><span>Actual</span><strong>{count.toLocaleString()}</strong></div>
+        <div><span>Plan</span><strong>{target.toLocaleString()}</strong></div>
+        <div className={`wall-line__balance ${planBalance < 0 ? "is-behind" : planBalance > 0 ? "is-ahead" : ""}`}>
+          <span>Plan Balance</span><strong>{formatSigned(planBalance)}</strong><small>{getBalanceDetail(planBalance)}</small>
+        </div>
+        <div className={rejects > 0 ? "has-rejects" : ""}><span>Reject</span><strong>{rejects.toLocaleString()}</strong></div>
       </div>
     </article>
   );
 }
 
-function SummaryMetric({ label, value, detail, tone = "default" }) {
-  return <div className={`wall-summary__metric wall-summary__metric--${tone}`}><span>{label}</span><strong>{value}</strong><small>{detail}</small></div>;
+function SummaryMetric({ label, value, detail, tone = "default", progress }) {
+  return <div className={`wall-summary__metric wall-summary__metric--${tone}`}><span>{label}</span><strong>{value}</strong><small>{detail}</small>{progress !== undefined && <div className="wall-summary__track" aria-hidden="true"><span style={{ width: `${clampPercent(progress)}%` }}></span></div>}</div>;
 }
 
 function Wallboard({ onLogout }) {
@@ -120,7 +137,7 @@ function Wallboard({ onLogout }) {
     const oee = seededLines.reduce((total, line) => total + getOee(line), 0) / seededLines.length;
     const running = seededLines.filter((line) => getStatus(line).label === "Running").length;
     const progress = target > 0 ? clampPercent((actual / target) * 100) : 0;
-    return { actual, target, rejects, oee, running, progress };
+    return { actual, target, rejects, oee, running, progress, planBalance: actual - target };
   }, [seededLines]);
 
   async function toggleFullscreen() {
@@ -143,7 +160,7 @@ function Wallboard({ onLogout }) {
       <section className="wall-summary" aria-label="Factory summary">
         <SummaryMetric label="Overall OEE" value={`${formatPercent(summary.oee)}%`} detail={`${summary.running} of ${ALL_LINE_IDS.length} lines running`} tone={oeeTone(summary.oee)} />
         <SummaryMetric label="Total Output" value={summary.actual.toLocaleString()} detail={`Target ${summary.target.toLocaleString()}`} tone="blue" />
-        <SummaryMetric label="Plan Progress" value={`${Math.round(summary.progress)}%`} detail={`${Math.max(0, summary.target - summary.actual).toLocaleString()} remaining`} tone="cyan" />
+        <SummaryMetric label="Plan Progress" value={`${Math.round(summary.progress)}%`} detail={`${formatSigned(summary.planBalance)} · ${getBalanceDetail(summary.planBalance)}`} tone="cyan" progress={summary.progress} />
         <SummaryMetric label="Total Reject" value={summary.rejects.toLocaleString()} detail="Current production shift" tone={summary.rejects > 0 ? "alert" : "good"} />
       </section>
       <section className="wallboard__lines" aria-label="Live production lines">
