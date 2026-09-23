@@ -1,55 +1,64 @@
-# Production Overview Deployment
+# Deploy to the AI Atom PC (Linux)
 
-## Ports
+This guide assumes a Debian or Ubuntu style Linux installation with systemd. Keep the Raspberry Pi running until the Atom PC has received live data and users can sign in. The setup script does not move the PostgreSQL database, change Node-RED, or stop the Pi.
 
-- Frontend: `5173`
-- Backend API and WebSocket: `3200` by default
+## 1. Prepare the PC
 
-## Raspberry Pi Setup
+Install Node.js **22.12 or newer**, npm, Git, and PostgreSQL access. Give the PC a stable LAN address or DHCP reservation so phone and Node-RED URLs do not change. Allow TCP port `3200` from the trusted plant network. If Node-RED is on another device, it must be able to reach the PC on that port.
 
-Fast start from a clean Raspberry Pi terminal:
+Clone the repository on the Atom PC:
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/digitalsgisb/production-overview/main/scripts/setup-pi.sh)"
+git clone https://github.com/digitalsgisb/production-overview.git
+cd production-overview
 ```
 
-The script installs Git/Node if needed, clones or updates the repo, creates `main/server/.env` if missing, installs dependencies, builds the frontend, creates systemd service files if missing, and starts both services.
+## 2. Database and configuration
 
-1. Install Node.js LTS on the Raspberry Pi.
-2. Clone the repository.
-3. Install backend dependencies:
-   ```bash
-   cd production-overview/main/server
-   npm ci
-   cp .env.example .env
-   ```
-4. Update `main/server/.env`:
-   - `API_KEY` must match the key used by Node-RED in the `x-api-key` header.
-   - `FRONTEND_ORIGINS` must include the frontend URL, for example `http://<pi-ip>:5173`.
-   - Add the PostgreSQL `DB_*` values.
-5. Start the backend:
-   ```bash
-   npm start
-   ```
-6. Install and start the frontend:
-   ```bash
-   cd ../depan
-   npm ci
-   npm run dev
-   ```
-7. Open the dashboard from another device with:
-   ```text
-   http://<pi-ip>:5173
-   ```
+The app uses PostgreSQL. For continuity, point `DB_HOST`, `DB_USER`, `DB_PASS`, `DB_DB`, and `DB_PORT` at the existing database if the Atom PC can reach it. If moving PostgreSQL too, back it up on the old host, restore it on the new host, and test the restored users and production tables before switching Node-RED. On first use, the app adds a `username` column to existing users, assigns unique usernames from email prefixes, and creates the production line registry and guest setting tables. The database user needs table creation and user-table alteration permissions. Back up the database before the first upgrade.
 
-The frontend automatically talks to `http://<same-host>:3200` when `VITE_API_URL` is not set. For a custom API host, create `main/depan/.env` from `.env.example` and set `VITE_API_URL`.
+Copy the example and edit it on the Atom PC:
 
-## Node-RED Notes
+```bash
+cp main/server/.env.example main/server/.env
+chmod 600 main/server/.env
+nano main/server/.env
+```
 
-- Keep using the backend HTTP endpoints such as `/start-session-`, `/update_product_count`, `/machine_mode`, `/setupModel`, `/update_reject`, `/downtime_log`, and `/endShift`.
-- Every protected Node-RED request must send `x-api-key`; it must match `API_KEY` in `main/server/.env`.
-- For Raspberry Pi deployment, change Node-RED HTTP Request URLs from the cloud API host to `http://<pi-ip>:3200/<endpoint>` unless the cloud API remains the target.
-- Keep `line_id` aligned with the dashboard line IDs: `ABB4`, `ABB7`, `ABB2`, `SDY1`, or `SDY2`.
-- `/update_product_count` accepts `product_count` and optional OEE metrics: `oee`, `availability_pct` or `availability_pctm`, `quality_pct`, and `performance_pct`.
-- A line must have an active session before count updates are accepted. Send `/start-session-` first, then `/update_product_count`, and finally `/endShift`.
-- If the dashboard is opened from a phone or another PC, do not use `localhost` in Node-RED or frontend env values unless the service is running on that same device.
+Set a unique shared `API_KEY` (at least 16 characters) and configure the same value in every Node-RED flow's `x-api-key` header. Set a random `JWT_SECRET` (at least 32 characters), for example with `openssl rand -hex 32`. Keep the existing `JWT_SECRET` during migration if you want existing signed sessions to remain valid. Set `ENABLE_LOCAL_ADMIN=true` only if you need the bootstrap login, and give it a strong `LOCAL_ADMIN_PASSWORD`. Set `LOCAL_ADMIN_USERNAME` for the bootstrap login; if absent, the part before `@` in `LOCAL_ADMIN_EMAIL` is used. The local admin does not appear in the database user list. Set `PORT=3200`. `FRONTEND_ORIGINS` is only needed for a separate development frontend or an existing external frontend.
+
+There is no need to copy `main/depan/.env` for the production build. If it contains a Pi address or `localhost`, remove it before building so phones use the Atom PC's own address. No secrets belong in the frontend `.env`.
+
+## 3. Install and start
+
+From the repository directory:
+
+```bash
+bash scripts/setup-atom.sh
+```
+
+The script checks configuration, installs locked dependencies, builds the frontend, and creates one `production-overview` systemd service. It does not pull code or overwrite `.env`. Then verify:
+
+```bash
+sudo systemctl status production-overview
+curl http://127.0.0.1:3200/healthz
+sudo journalctl -u production-overview -n 100 --no-pager
+```
+
+Open `http://<atom-ip>:3200` on a phone and desktop. Sign in, check both sites, and verify the live feed indicator and line changes. The wallboard is at `http://<atom-ip>:3200/wallboard`. HTTP on a local LAN is for a trusted network; use an HTTPS reverse proxy if this must be reachable over the internet.
+
+## 4. Move Node-RED traffic
+
+Point Node-RED HTTP Request nodes at `http://<atom-ip>:3200/<endpoint>` and send the matching `x-api-key`. Existing routes and payloads remain the same: `/start-session-`, `/update_product_count`, `/machine_mode`, `/setupModel`, `/update_reject`, `/downtime_log`, and `/endShift`. `line_id` must match a line registered under **Manage system → Production lines**. Existing IDs are added to the registry automatically. Send `/start-session-` before count updates and `/endShift` at shift end. Register a new line before switching its Node-RED flow; a correct key with an unknown ID receives a 404 response.
+
+Do not have Node-RED send the same event to both old and new servers unless both point at the same database and duplicate database writes are acceptable. Check one full start, update, and end sequence on the Atom PC before retiring the Pi. Line state is currently held in process memory, so a restart starts with offline cards until Node-RED sends fresh session and line data; plan the cutover at a shift boundary or replay current state.
+
+## Updates and rollback
+
+```bash
+cd ~/production-overview
+git pull --ff-only
+bash scripts/setup-atom.sh
+```
+
+Before changing a live system, back up PostgreSQL and `main/server/.env`. If the Atom deployment fails during cutover, restore the previous Node-RED target and reopen the Pi dashboard while diagnosing `journalctl -u production-overview`.

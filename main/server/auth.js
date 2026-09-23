@@ -19,7 +19,7 @@ function normalizeSites(sites, role) {
 function toPublicUser(user) {
     return {
         id: String(user.id),
-        email: user.email,
+        username: user.username,
         name: user.name,
         role: ROLES.includes(user.role) ? user.role : "Viewer",
         status: user.status === "Paused" ? "Paused" : "Active",
@@ -28,12 +28,12 @@ function toPublicUser(user) {
     };
 }
 
-function validateEmail(value) {
-    const email = String(value || "").trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        throw new Error("Enter a valid email address.");
+function validateUsername(value) {
+    const username = String(value || "").trim().toLowerCase();
+    if (!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(username)) {
+        throw new Error("Enter a username of 3–32 letters, numbers, dots, dashes or underscores.");
     }
-    return email;
+    return username;
 }
 
 function validatePassword(value) {
@@ -51,7 +51,7 @@ function createUserId() {
     return `usr_${crypto.randomBytes(13).toString("hex")}`;
 }
 
-function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessChanged = () => {} }) {
+function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessChanged = () => {}, onUserChanged = () => {} }) {
     const configuredSecret = String(process.env.JWT_SECRET || "").trim();
     const jwtSecret = configuredSecret || crypto.randomBytes(64).toString("hex");
     let schemaPromise;
@@ -69,14 +69,32 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessCh
 
     function ensureUserSchema() {
         if (!schemaPromise) {
-            schemaPromise = pool.query(`
+            schemaPromise = (async () => {
+              await pool.query(`
                 ALTER TABLE users
                     ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'Viewer',
                     ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Active',
                     ADD COLUMN IF NOT EXISTS sites TEXT[] NOT NULL DEFAULT ARRAY['Port Klang']::TEXT[],
-                    ADD COLUMN IF NOT EXISTS last_seen TIMESTAMPTZ;
+                    ADD COLUMN IF NOT EXISTS last_seen TIMESTAMPTZ,
+                    ADD COLUMN IF NOT EXISTS username TEXT;
                 ALTER TABLE users ALTER COLUMN password TYPE TEXT;
-            `).catch((error) => {
+              `);
+              const result = await pool.query("SELECT id, email, username FROM users ORDER BY id::TEXT");
+              const used = new Set(result.rows.filter((row) => row.username).map((row) => row.username.toLowerCase()));
+              for (const row of result.rows) {
+                  if (row.username) continue;
+                  let base = String(row.email || "").split("@")[0].toLowerCase().replace(/[^a-z0-9._-]/g, "").replace(/^[^a-z0-9]+/, "").slice(0, 32);
+                  if (base.length < 3) base = `user-${String(row.id).toLowerCase().replace(/[^a-z0-9]/g, "").slice(-12)}`;
+                  let candidate = base;
+                  for (let suffix = 2; used.has(candidate); suffix += 1) {
+                      const ending = `-${suffix}`;
+                      candidate = `${base.slice(0, 32 - ending.length)}${ending}`;
+                  }
+                  await pool.query("UPDATE users SET username = $1 WHERE id::TEXT = $2 AND username IS NULL", [candidate, String(row.id)]);
+                  used.add(candidate);
+              }
+              await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS production_overview_username_unique ON users (LOWER(username))");
+            })().catch((error) => {
                 schemaPromise = undefined;
                 throw error;
             });
@@ -114,7 +132,7 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessCh
 
     function signToken(user) {
         return jwt.sign(
-            { role: user.role, email: user.email },
+            { role: user.role },
             jwtSecret,
             { subject: String(user.id), expiresIn: "8h" },
         );
@@ -127,11 +145,11 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessCh
             if (!hasDatabaseConfig || !await isGuestAccessEnabled()) {
                 throw new Error("Guest access is disabled.");
             }
-            return { id: "guest", role: "Guest" };
+            return { id: "guest", role: "Guest", sites: [...SITES] };
         }
 
         if (claims.sub === "local-admin" && claims.role === "Admin" && localAdmin.enabled) {
-            return { id: "local-admin", role: "Admin" };
+            return { id: "local-admin", role: "Admin", sites: [...SITES] };
         }
 
         if (!hasDatabaseConfig) {
@@ -140,7 +158,7 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessCh
 
         await ensureUserSchema();
         const result = await pool.query(
-            "SELECT id, role, status FROM users WHERE id = $1",
+            "SELECT id, role, status, sites FROM users WHERE id = $1",
             [claims.sub],
         );
         const user = result.rows[0];
@@ -149,22 +167,22 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessCh
             throw new Error("Your login is no longer active.");
         }
 
-        return { id: String(user.id), role: user.role };
+        return { id: String(user.id), role: user.role, sites: normalizeSites(user.sites, user.role) };
     }
 
     async function login(request, response) {
         try {
-            const email = validateEmail(request.body?.email);
+            const username = validateUsername(request.body?.username);
             const password = String(request.body?.password || "");
 
             if (
                 localAdmin.enabled &&
-                email === localAdmin.email.toLowerCase() &&
+                username === localAdmin.username.toLowerCase() &&
                 password === localAdmin.password
             ) {
                 const user = {
                     id: "local-admin",
-                    email: localAdmin.email,
+                    username: localAdmin.username,
                     name: localAdmin.name,
                     role: "Admin",
                     status: "Active",
@@ -182,13 +200,13 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessCh
             await ensureUserSchema();
 
             const result = await pool.query(`
-                SELECT id, email, name, password, role, status, sites, last_seen
+                SELECT id, username, email, name, password, role, status, sites, last_seen
                 FROM users
-                WHERE LOWER(email) = $1
-            `, [email]);
+                WHERE LOWER(username) = $1
+            `, [username]);
 
             if (result.rows.length === 0) {
-                return response.status(401).json({ message: "Invalid email or password." });
+                return response.status(401).json({ message: "Invalid username or password." });
             }
 
             const user = result.rows[0];
@@ -202,7 +220,7 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessCh
                 : password === user.password;
 
             if (!passwordMatches) {
-                return response.status(401).json({ message: "Invalid email or password." });
+                return response.status(401).json({ message: "Invalid username or password." });
             }
 
             const passwordHash = hasBcryptPassword
@@ -212,7 +230,7 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessCh
                 UPDATE users
                 SET password = $1, last_seen = NOW()
                 WHERE id = $2
-                RETURNING id, email, name, role, status, sites, last_seen
+                RETURNING id, username, email, name, role, status, sites, last_seen
             `, [passwordHash, user.id]);
             const publicUser = toPublicUser(updated.rows[0]);
 
@@ -227,7 +245,7 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessCh
         }
     }
 
-    async function requireAdmin(request, response, next) {
+    async function requireSession(request, response, next) {
         try {
             const authorization = String(request.headers.authorization || "");
             const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
@@ -237,15 +255,20 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessCh
             }
 
             const user = await verifySessionToken(token);
-            if (user.role !== "Admin") {
-                return response.status(403).json({ message: "Admin access is required." });
-            }
-
-            request.authUser = { id: String(user.id), role: user.role };
+            request.authUser = user;
             return next();
         } catch {
             return response.status(401).json({ message: "Your login has expired. Please sign in again." });
         }
+    }
+
+    async function requireAdmin(request, response, next) {
+        return requireSession(request, response, () => {
+            if (request.authUser.role !== "Admin") {
+                return response.status(403).json({ message: "Admin access is required." });
+            }
+            return next();
+        });
     }
 
     async function getPublicSettings(request, response) {
@@ -271,7 +294,7 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessCh
 
             const user = {
                 id: "guest",
-                email: "",
+                username: "guest",
                 name: "Guest",
                 role: "Guest",
                 status: "Active",
@@ -327,9 +350,9 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessCh
         try {
             await ensureUserSchema();
             const result = await pool.query(`
-                SELECT id, email, name, role, status, sites, last_seen
+                SELECT id, username, email, name, role, status, sites, last_seen
                 FROM users
-                ORDER BY CASE WHEN role = 'Admin' THEN 0 ELSE 1 END, name, email
+                ORDER BY CASE WHEN role = 'Admin' THEN 0 ELSE 1 END, name, username
             `);
             return response.json({ users: result.rows.map(toPublicUser) });
         } catch {
@@ -341,7 +364,9 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessCh
         try {
             await ensureUserSchema();
             const name = String(request.body?.name || "").trim();
-            const email = validateEmail(request.body?.email);
+            const username = validateUsername(request.body?.username);
+            const userId = createUserId();
+            const email = `${userId}@users.local`;
             const password = validatePassword(request.body?.password);
             const role = ROLES.includes(request.body?.role) ? request.body.role : "Viewer";
             const sites = normalizeSites(request.body?.sites, role);
@@ -351,24 +376,24 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessCh
             }
 
             const existing = await pool.query(
-                "SELECT id FROM users WHERE LOWER(email) = $1",
-                [email],
+                "SELECT id FROM users WHERE LOWER(username) = $1",
+                [username],
             );
-            if (existing.rows.length > 0) {
-                return response.status(409).json({ message: "A user with this email already exists." });
+            if (existing.rows.length > 0 || (localAdmin.enabled && username === localAdmin.username.toLowerCase())) {
+                return response.status(409).json({ message: "This username is already in use." });
             }
 
             const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-            const userId = createUserId();
             const result = await pool.query(`
-                INSERT INTO users (id, name, email, password, role, status, sites)
-                VALUES ($1, $2, $3, $4, $5, 'Active', $6)
-                RETURNING id, email, name, role, status, sites, last_seen
-            `, [userId, name, email, passwordHash, role, sites]);
+                INSERT INTO users (id, username, name, email, password, role, status, sites)
+                VALUES ($1, $2, $3, $4, $5, $6, 'Active', $7)
+                RETURNING id, username, email, name, role, status, sites, last_seen
+            `, [userId, username, name, email, passwordHash, role, sites]);
 
             return response.status(201).json({ user: toPublicUser(result.rows[0]) });
         } catch (error) {
             console.error("Create user failed:", error.message);
+            if (error.code === "23505") return response.status(409).json({ message: "This username is already in use." });
             const isValidation = /^(Enter|Password)/.test(error.message || "");
             return response.status(isValidation ? 400 : 500).json({
                 message: isValidation ? error.message : "Unable to create the user.",
@@ -390,7 +415,7 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessCh
             await ensureUserSchema();
             const userId = String(request.params.userId);
             const current = await pool.query(`
-                SELECT id, email, name, password, role, status, sites, last_seen
+                SELECT id, username, email, name, password, role, status, sites, last_seen
                 FROM users WHERE id::TEXT = $1
             `, [userId]);
 
@@ -427,9 +452,13 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessCh
             const name = request.body?.name === undefined
                 ? existing.name
                 : String(request.body.name || "").trim();
-            const email = request.body?.email === undefined
-                ? existing.email
-                : validateEmail(request.body.email);
+            const username = request.body?.username === undefined
+                ? existing.username
+                : validateUsername(request.body.username);
+            const duplicate = await pool.query("SELECT id FROM users WHERE LOWER(username) = $1 AND id::TEXT <> $2", [username, userId]);
+            if (duplicate.rows.length || (localAdmin.enabled && username === localAdmin.username.toLowerCase())) {
+                return response.status(409).json({ message: "This username is already in use." });
+            }
             const sites = normalizeSites(
                 request.body?.sites === undefined ? existing.sites : request.body.sites,
                 nextRole,
@@ -444,13 +473,15 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessCh
 
             const result = await pool.query(`
                 UPDATE users
-                SET name = $1, email = $2, password = $3, role = $4, status = $5, sites = $6
+                SET name = $1, username = $2, password = $3, role = $4, status = $5, sites = $6
                 WHERE id::TEXT = $7
-                RETURNING id, email, name, role, status, sites, last_seen
-            `, [name, email, passwordHash, nextRole, nextStatus, sites, userId]);
+                RETURNING id, username, email, name, role, status, sites, last_seen
+            `, [name, username, passwordHash, nextRole, nextStatus, sites, userId]);
 
+            onUserChanged(userId);
             return response.json({ user: toPublicUser(result.rows[0]) });
         } catch (error) {
+            if (error.code === "23505") return response.status(409).json({ message: "This username is already in use." });
             const isValidation = /^(Enter|Password)/.test(error.message || "");
             return response.status(isValidation ? 400 : 500).json({
                 message: isValidation ? error.message : "Unable to update the user.",
@@ -483,6 +514,7 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessCh
             }
 
             await pool.query("DELETE FROM users WHERE id::TEXT = $1", [userId]);
+            onUserChanged(userId);
             return response.status(204).end();
         } catch {
             return response.status(500).json({ message: "Unable to remove the user." });
@@ -493,6 +525,7 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessCh
         authenticateSocket,
         createGuestSession,
         login,
+        requireSession,
         requireAdmin,
         getPublicSettings,
         listUsers,

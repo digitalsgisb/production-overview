@@ -17,12 +17,12 @@ function App() {
     const token = localStorage.getItem("token");
     const userId = localStorage.getItem("userId");
     const name = localStorage.getItem("name");
-    const email = localStorage.getItem("email");
+    const username = localStorage.getItem("username");
     const role = localStorage.getItem("role");
     const status = localStorage.getItem("status");
     const sites = getStoredSites();
 
-    return userId && token ? { id: userId, email, name, role, status, sites } : null;
+    return userId && token ? { id: userId, username, name, role, status, sites } : null;
   });
 
   function handleLoginSuccess(user) {
@@ -32,6 +32,7 @@ function App() {
   function handleLogout() {
     localStorage.removeItem("token");
     localStorage.removeItem("userId");
+    localStorage.removeItem("username");
     localStorage.removeItem("email");
     localStorage.removeItem("name");
     localStorage.removeItem("role");

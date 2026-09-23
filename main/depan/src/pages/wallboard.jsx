@@ -1,14 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { io } from "socket.io-client";
 import "./wallboard.css";
 
 const DEFAULT_API_URL = `${window.location.protocol}//${window.location.hostname}:3200`;
+const API_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL;
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL || DEFAULT_API_URL;
 const SITES = [
-  { name: "Port Klang", lines: ["ABB2", "ABB4", "ABB7"] },
-  { name: "Sendayan", lines: ["SDY1", "SDY2"] },
+  "Port Klang",
+  "Sendayan",
 ];
-const ALL_LINE_IDS = SITES.flatMap((site) => site.lines);
 const STATUS_CONFIG = {
   normal: { label: "Running", color: "#20d487" }, running: { label: "Running", color: "#20d487" },
   loading: { label: "Loading", color: "#4f8cff" }, delay: { label: "Delay", color: "#f5a524" },
@@ -29,9 +29,7 @@ function getOee(line) {
   const availability = numberValue(lineValue(line, ["availability_pct", "availability_pctm"]));
   const performance = numberValue(lineValue(line, ["performance_pct"]));
   const quality = numberValue(lineValue(line, ["quality_pct"]));
-  return availability > 0 || performance > 0 || quality > 0
-    ? clampPercent((availability + performance + quality) / 3)
-    : clampPercent(explicit);
+  return clampPercent(explicit > 0 ? explicit : (availability * performance * quality) / 10000);
 }
 function formatPercent(value) {
   const rounded = Number(numberValue(value).toFixed(1));
@@ -45,7 +43,6 @@ function getStatus(line) {
 function fallbackLine(lineId) {
   return { line_id: lineId, status: "offline", product_count: 0, product_reject: 0, target: 0, availability_pct: 0, performance_pct: 0, quality_pct: 0 };
 }
-function getSiteName(lineId) { return SITES.find((site) => site.lines.includes(lineId))?.name || "Production"; }
 function oeeTone(oee) { return oee >= 80 ? "good" : oee >= 60 ? "watch" : "alert"; }
 function formatSigned(value) { return `${value > 0 ? "+" : ""}${value.toLocaleString()}`; }
 function getBalanceDetail(value) {
@@ -54,7 +51,7 @@ function getBalanceDetail(value) {
   return "On plan";
 }
 
-function WallboardLineCard({ lineId, line }) {
+function WallboardLineCard({ lineId, line, config }) {
   const status = getStatus(line);
   const oee = getOee(line);
   const count = numberValue(lineValue(line, ["product_count", "count"]));
@@ -68,8 +65,9 @@ function WallboardLineCard({ lineId, line }) {
     <article className={`wall-line wall-line--${oeeTone(oee)} ${status.key === "offline" ? "is-offline" : ""}`} style={{ "--line-status": status.color, "--line-progress": `${progress}%` }}>
       <div className="wall-line__head">
         <div className="wall-line__identity">
-          <span className="wall-line__site">{getSiteName(lineId)}</span>
+          <span className="wall-line__site">{config?.site || "Production"}</span>
           <h2>{line?.line_id || lineId}</h2>
+          {config?.name !== lineId && <small>{config?.name}</small>}
           <div className="wall-line__status"><span aria-hidden="true"></span>{status.label}</div>
         </div>
         <div className="wall-line__oee-value" aria-label={`OEE ${formatPercent(oee)} percent`}>
@@ -104,7 +102,24 @@ function SummaryMetric({ label, value, detail, tone = "default", progress, empha
   return <div className={`wall-summary__metric wall-summary__metric--${tone} ${emphasis ? "is-emphasis" : ""}`}><span>{label}</span><strong>{value}</strong>{detail && <small>{detail}</small>}{progress !== undefined && <div className="wall-summary__track" aria-hidden="true"><span style={{ width: `${clampPercent(progress)}%` }}></span></div>}</div>;
 }
 
-function Wallboard({ onLogout }) {
+function Wallboard({ user, onLogout }) {
+  const [lineConfigs, setLineConfigs] = useState([]);
+  const [lineError, setLineError] = useState("");
+  const refreshLines = useCallback(async () => {
+    const response = await fetch(`${API_URL}/lines`, { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } });
+    if (!response.ok) throw new Error("Unable to load production lines.");
+    const data = await response.json();
+    setLineConfigs(data.lines || []);
+    setLineError("");
+  }, []);
+  useEffect(() => {
+    const timer = window.setTimeout(() => refreshLines().catch((error) => setLineError(error.message)), 0);
+    return () => window.clearTimeout(timer);
+  }, [refreshLines]);
+  const visibleSites = useMemo(() => SITES
+    .filter((site) => user?.role === "Admin" || user?.role === "Guest" || user?.sites?.includes(site))
+    .map((site) => ({ name: site, lines: lineConfigs.filter((line) => line.site === site).map((line) => line.lineId) })), [user, lineConfigs]);
+  const visibleLineIds = useMemo(() => visibleSites.flatMap((site) => site.lines), [visibleSites]);
   const [lines, setLines] = useState({});
   const [connected, setConnected] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -119,7 +134,8 @@ function Wallboard({ onLogout }) {
   }, []);
   useEffect(() => {
     const socket = io(SOCKET_URL, { auth: { token: localStorage.getItem("token") } });
-    socket.on("connect", () => { setConnected(true); ALL_LINE_IDS.forEach((lineId) => socket.emit("join-line", lineId)); });
+    socket.on("connect", () => { setConnected(true); visibleLineIds.forEach((lineId) => socket.emit("join-line", lineId)); });
+    socket.on("lines:changed", () => refreshLines().catch((error) => setLineError(error.message)));
     socket.on("disconnect", () => setConnected(false));
     socket.on("line:data", (data) => { setLines((current) => ({ ...current, [data.line_id]: data.line })); setLastUpdated(new Date()); });
     socket.on("line:update", (data) => {
@@ -129,14 +145,14 @@ function Wallboard({ onLogout }) {
     socket.on("session:revoked", () => onLogout?.());
     socket.on("connect_error", (error) => { setConnected(false); if (error?.data?.code === "AUTH_REQUIRED") onLogout?.(); });
     return () => socket.disconnect();
-  }, [onLogout]);
+  }, [onLogout, visibleLineIds, refreshLines]);
 
-  const seededLines = useMemo(() => ALL_LINE_IDS.map((lineId) => lines[lineId] || fallbackLine(lineId)), [lines]);
+  const seededLines = useMemo(() => visibleLineIds.map((lineId) => lines[lineId] || fallbackLine(lineId)), [lines, visibleLineIds]);
   const summary = useMemo(() => {
     const actual = seededLines.reduce((total, line) => total + numberValue(lineValue(line, ["product_count", "count"])), 0);
     const target = seededLines.reduce((total, line) => total + numberValue(lineValue(line, ["target", "hourly_plan"])), 0);
     const rejects = seededLines.reduce((total, line) => total + numberValue(lineValue(line, ["product_reject", "reject"])), 0);
-    const oee = seededLines.reduce((total, line) => total + getOee(line), 0) / seededLines.length;
+    const oee = seededLines.length ? seededLines.reduce((total, line) => total + getOee(line), 0) / seededLines.length : 0;
     const running = seededLines.filter((line) => getStatus(line).label === "Running").length;
     const progress = target > 0 ? clampPercent((actual / target) * 100) : 0;
     return { actual, target, rejects, oee, running, progress, planBalance: actual - target };
@@ -152,6 +168,7 @@ function Wallboard({ onLogout }) {
         <div className="wallboard__brand"><img src="/sugihara-grand-white.png" alt="Sugihara Grand Industries" /><div><h1>Production Control Center</h1></div></div>
         <div className="wallboard__header-right">
           {!connected && <div className="wallboard__connection"><span aria-hidden="true"></span>Data feed reconnecting</div>}
+          {lineError && <div className="wallboard__connection" role="alert">{lineError}</div>}
           <div className="wallboard__clock"><strong>{now.toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit", hour12: false })}</strong><span>{now.toLocaleDateString("en-MY", { weekday: "long", day: "2-digit", month: "short", year: "numeric" })}</span></div>
           <button className="wallboard__icon-btn" type="button" onClick={toggleFullscreen} aria-label={isFullscreen ? "Exit full screen" : "Enter full screen"} title={isFullscreen ? "Exit full screen" : "Enter full screen"}>
             {isFullscreen ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" /></svg> : <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" /></svg>}
@@ -160,16 +177,16 @@ function Wallboard({ onLogout }) {
         </div>
       </header>
       <section className="wall-summary" aria-label="Factory summary">
-        <SummaryMetric label="OEE" value={`${formatPercent(summary.oee)}%`} detail={`${summary.running}/${ALL_LINE_IDS.length} running`} tone={oeeTone(summary.oee)} emphasis />
+        <SummaryMetric label="OEE" value={`${formatPercent(summary.oee)}%`} detail={`${summary.running}/${visibleLineIds.length} running`} tone={oeeTone(summary.oee)} emphasis />
         <SummaryMetric label="Output" value={summary.actual.toLocaleString()} detail={`Plan ${summary.target.toLocaleString()}`} tone="blue" />
         <SummaryMetric label="Plan" value={`${Math.round(summary.progress)}%`} detail={getBalanceDetail(summary.planBalance)} tone="cyan" progress={summary.progress} />
         <SummaryMetric label="Reject" value={summary.rejects.toLocaleString()} tone={summary.rejects > 0 ? "alert" : "good"} emphasis={summary.rejects > 0} />
       </section>
       <section className="wallboard__lines" aria-label="Live production lines">
-        {ALL_LINE_IDS.map((lineId) => <WallboardLineCard key={lineId} lineId={lineId} line={lines[lineId] || fallbackLine(lineId)} />)}
+        {visibleLineIds.map((lineId) => <WallboardLineCard key={lineId} lineId={lineId} line={lines[lineId] || fallbackLine(lineId)} config={lineConfigs.find((config) => config.lineId === lineId)} />)}
       </section>
       <footer className="wallboard__footer">
-        <div>{SITES.map((site) => { const running = site.lines.filter((lineId) => getStatus(lines[lineId] || fallbackLine(lineId)).label === "Running").length; return <span key={site.name}><i></i>{site.name}: {running}/{site.lines.length} running</span>; })}</div>
+        <div>{visibleSites.map((site) => { const running = site.lines.filter((lineId) => getStatus(lines[lineId] || fallbackLine(lineId)).label === "Running").length; return <span key={site.name}><i></i>{site.name}: {running}/{site.lines.length} running</span>; })}</div>
         <span>Last update: {lastUpdated ? lastUpdated.toLocaleTimeString("en-MY", { hour12: false }) : "Waiting for live data"}</span>
       </footer>
     </main>

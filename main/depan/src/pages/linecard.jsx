@@ -43,10 +43,11 @@ const STATUS_CONFIG = {
   }
 
   function calculateOee(explicitOee, availability, performance, quality) {
+    if (explicitOee > 0) return explicitOee;
     if (availability > 0 || performance > 0 || quality > 0) {
-      return (availability + performance + quality) / 3;
+      return (availability * performance * quality) / 10000;
     }
-    return explicitOee > 0 ? explicitOee : 0;
+    return 0;
   }
 
   function getOeeColor(oee) {
@@ -55,7 +56,7 @@ const STATUS_CONFIG = {
     return "#ef3f5f";
   }
 
-  function LineCard({ lineId, line, onSelectLine, readOnly = false }) {
+  function LineCard({ lineId, displayName, line, onSelectLine, readOnly = false }) {
     const status = getLineValue(line, ["machine_mode", "mode", "status"], "offline");
     const count = toNumber(getLineValue(line, ["product_count", "count"], 0));
     const target = toNumber(getLineValue(line, ["target", "hourly_plan"], 0));
@@ -99,6 +100,7 @@ const STATUS_CONFIG = {
             <div className="line-card__identity">
               <span className="line-id-label">Line</span>
               <span className="line-id-value">{line?.line_id ?? lineId}</span>
+              {displayName && displayName !== lineId && <span className="line-display-name">{displayName}</span>}
               <span className="line-card__status">
                 <span className="line-card__status-dot" aria-hidden="true"></span>
                 <span>{cfg.label}</span>

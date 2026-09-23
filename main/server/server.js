@@ -1,6 +1,8 @@
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
 const { updateMode,getSession, getRuntime, insertStaffSession} = require('./functions.js');
-const { ProductionLine } = require('./class.js');
+const { createLineRegistry } = require('./line-registry.js');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require("cors");
@@ -56,8 +58,11 @@ const hasDatabaseConfig = Boolean(
     process.env.DB_DB &&
     process.env.DB_PORT
 );
+const lineRegistry = createLineRegistry({ pool, hasDatabaseConfig });
+const { productionLines } = lineRegistry;
 const localAdmin = {
     enabled: process.env.ENABLE_LOCAL_ADMIN === "true",
+    username: process.env.LOCAL_ADMIN_USERNAME || String(process.env.LOCAL_ADMIN_EMAIL || "admin").split("@")[0],
     email: process.env.LOCAL_ADMIN_EMAIL || "admin@local.test",
     password: process.env.LOCAL_ADMIN_PASSWORD || "admin123",
     name: process.env.LOCAL_ADMIN_NAME || "Local Admin",
@@ -76,13 +81,14 @@ const auth = createAuthRouter({
             }
         }
     },
-});
-
-const Existing_ID = ['ABB4', 'ABB1', 'ABB7','ABB2','SDY1','SDY2'];
-const productionLines = new Map();
-
-Existing_ID.forEach(id => {
-    productionLines.set(id, new ProductionLine(id));
+    onUserChanged: (userId) => {
+        for (const socket of io.sockets.sockets.values()) {
+            if (socket.data.authUser?.id === userId) {
+                socket.emit('session:revoked', { reason: 'Account settings changed. Please sign in again.' });
+                socket.disconnect(true);
+            }
+        }
+    },
 });
 
 // function emitLineUpdate(line_id) {
@@ -178,9 +184,16 @@ io.use(auth.authenticateSocket);
 io.on('connection', (socket) => {
     console.log('React connected:', socket.id);
 
-    socket.on('join-line', (line_id) => {
-        socket.join(line_id);
-        emitLineData(socket,line_id);
+    socket.on('join-line', async (line_id) => {
+        try {
+            await lineRegistry.ensureLoaded();
+            const site = lineRegistry.configs.get(line_id)?.site;
+            if (!site || !socket.data.authUser?.sites?.includes(site)) return;
+            socket.join(line_id);
+            emitLineData(socket,line_id);
+        } catch (error) {
+            console.error('Unable to load line registry:', error.message);
+        }
     });
 });
 
@@ -192,13 +205,52 @@ app.post("/admin/users", auth.requireAdmin, auth.createUser);
 app.patch("/admin/settings/guest-access", auth.requireAdmin, auth.updateGuestAccess);
 app.patch("/admin/users/:userId", auth.requireAdmin, auth.updateUser);
 app.delete("/admin/users/:userId", auth.requireAdmin, auth.removeUser);
+app.get('/lines', auth.requireSession, async (req, res) => {
+    try {
+        await lineRegistry.ensureLoaded();
+        return res.json({ lines: lineRegistry.list(req.authUser.sites) });
+    } catch (error) {
+        console.error('Load lines failed:', error.message);
+        return res.status(500).json({ message: 'Unable to load production lines.' });
+    }
+});
+app.post('/admin/lines', auth.requireAdmin, async (req, res) => {
+    try {
+        const line = await lineRegistry.create(req.body);
+        io.emit('lines:changed');
+        return res.status(201).json({ line });
+    } catch (error) {
+        return res.status(/exists|Line ID|Line name|Choose|dashboard URL|Dashboard URL/.test(error.message) ? 400 : 500).json({ message: error.message });
+    }
+});
+app.patch('/admin/lines/:lineId', auth.requireAdmin, async (req, res) => {
+    try {
+        const line = await lineRegistry.update(req.params.lineId, req.body);
+        for (const socket of io.sockets.sockets.values()) {
+            if (!socket.data.authUser?.sites?.includes(line.site)) socket.leave(line.lineId);
+        }
+        io.emit('lines:changed');
+        return res.json({ line });
+    } catch (error) {
+        return res.status(error.message === 'Unknown line ID.' ? 404 : 400).json({ message: error.message });
+    }
+});
+
+// On the Atom PC the built app and API share one origin and one service.
+// Keep the Node-RED endpoints below protected by x-api-key.
+const frontendDist = path.resolve(__dirname, '../depan/dist');
+if (fs.existsSync(path.join(frontendDist, 'index.html'))) {
+    app.use(express.static(frontendDist));
+    app.get('/wallboard', (req, res) => res.sendFile(path.join(frontendDist, 'index.html')));
+}
+app.get('/healthz', (req, res) => res.json({ status: 'ok' }));
 
 //
 // FROM NODE RED TO NODE JS
 //
 const API_KEY = process.env.API_KEY;
 
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
     const key = req.headers['x-api-key'];
 
     if (!API_KEY) {
@@ -207,6 +259,16 @@ app.use((req, res, next) => {
 
     if (key !== API_KEY) {
         return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    try {
+        await lineRegistry.ensureLoaded();
+    } catch (error) {
+        return res.status(503).json({ success: false, error: 'Line registry is unavailable' });
+    }
+    const lineId = req.body?.line_id || (req.path.startsWith('/line/') ? decodeURIComponent(req.path.slice('/line/'.length)) : null);
+    if (!lineId || !lineRegistry.configs.has(lineId)) {
+        return res.status(404).json({ success: false, error: `Unknown line_id ${lineId || ''}` });
     }
 
     next();
@@ -225,7 +287,7 @@ app.post('/start-session-', async (req, res) => {
 
     const line = productionLines.get(line_id);
     if (!line) {
-        return console.log(`Unknwon line_id ${line_id}`) 
+        return res.status(404).json({ success: false, error: `Unknown line_id ${line_id}` });
     }
 
     let session_id, runtime_id;

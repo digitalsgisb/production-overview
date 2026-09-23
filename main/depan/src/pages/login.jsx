@@ -8,7 +8,7 @@ const GUEST_SESSION_URL = `${API_URL}/guest-session`;
 const PUBLIC_SETTINGS_URL = `${API_URL}/settings/public`;
 
 function Login({ onLoginSuccess }) {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -36,7 +36,7 @@ function Login({ onLoginSuccess }) {
   function storeSession(token, user) {
     localStorage.setItem("token", token);
     localStorage.setItem("userId", user.id);
-    localStorage.setItem("email", user.email);
+    localStorage.setItem("username", user.username || "");
     localStorage.setItem("name", user.name);
     localStorage.setItem("role", user.role);
     localStorage.setItem("status", user.status);
@@ -70,8 +70,8 @@ function Login({ onLoginSuccess }) {
     event.preventDefault();
     setError("");
 
-    if (!email || !password) {
-      setError("Please enter your email and password.");
+    if (!username || !password) {
+      setError("Please enter your username and password.");
       return;
     }
 
@@ -83,13 +83,13 @@ function Login({ onLoginSuccess }) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, password }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.message || "Invalid email or password.");
+        setError(data.message || "Invalid username or password.");
         return;
       }
 
@@ -126,13 +126,13 @@ function Login({ onLoginSuccess }) {
 
           <form className="login-form" onSubmit={handleSubmit} noValidate>
             <div className="form-field">
-              <label className="form-field__label" htmlFor="email">Email</label>
+              <label className="form-field__label" htmlFor="username">Username</label>
               <input
                 className="form-field__input"
-                type="email"
-                id="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                type="text"
+                id="username"
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
                 autoComplete="username"
               />
             </div>

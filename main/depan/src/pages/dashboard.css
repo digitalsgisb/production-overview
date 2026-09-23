@@ -2853,6 +2853,132 @@ button {
   display: none;
 }
 
+.mobile-insights {
+  display: none;
+}
+
+.live-feed-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  color: #ffb0bd;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.live-feed-status.is-connected {
+  color: #8bd9b2;
+}
+
+.live-feed-status__dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.admin-role-help {
+  margin: 8px 0 14px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.admin-user-details {
+  margin-top: 12px;
+}
+
+.admin-user-details > summary {
+  padding: 11px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 7px;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-user-details[open] > summary {
+  margin-bottom: 12px;
+}
+
+.admin-username-control,
+.admin-line-settings {
+  display: grid;
+  gap: 9px;
+  margin: 12px 0;
+}
+
+.admin-username-control label,
+.admin-line-settings label {
+  display: grid;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.admin-username-control input,
+.admin-line-settings input,
+.admin-line-settings select {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px;
+  border: 1px solid var(--card-border);
+  border-radius: 7px;
+  background: var(--bg-panel-soft);
+  color: var(--text-primary);
+}
+
+.admin-username-control button,
+.admin-line-settings button {
+  min-height: 40px;
+  border: 1px solid var(--card-border-strong);
+  border-radius: 7px;
+  background: rgba(79, 140, 255, 0.16);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.admin-line-management {
+  margin: 16px 0;
+  padding: 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+}
+
+.admin-line-management > summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.admin-line-management p {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.admin-line-list {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-line-list .admin-line-settings {
+  padding-top: 12px;
+  border-top: 1px solid var(--card-border);
+}
+
+.line-display-name {
+  display: block;
+  max-width: 150px;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .admin-password-reset label {
   display: flex;
   flex-direction: column;
@@ -3290,6 +3416,34 @@ button {
     font-weight: 850;
     line-height: 1.2;
     text-align: center;
+  }
+
+  .live-feed-status {
+    justify-content: center;
+    margin-bottom: 12px;
+    text-align: center;
+  }
+
+  .mobile-insights {
+    display: block;
+    margin: 18px 0 0;
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    background: var(--bg-panel);
+    scroll-margin-top: calc(94px + env(safe-area-inset-top));
+  }
+
+  .mobile-insights > summary {
+    padding: 15px;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .mobile-insights .mobile-metric-deck {
+    padding: 0 10px 10px;
+    margin-bottom: 0;
   }
 
   .mobile-hero__intro {

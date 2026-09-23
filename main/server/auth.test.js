@@ -1,5 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const jwt = require("jsonwebtoken");
 const { createAuthRouter, createUserId, normalizeSites, toPublicUser, validatePassword } = require("./auth.js");
 
 process.env.JWT_SECRET ||= "test-only-jwt-secret-for-auth-tests";
@@ -35,6 +36,73 @@ test("non-admin site access is filtered and de-duplicated", () => {
         normalizeSites(["Sendayan", "Unknown", "Sendayan"], "Viewer"),
         ["Sendayan"],
     );
+});
+
+test("socket authentication loads current site access from the database", async () => {
+    const pool = {
+        async query(sql) {
+            if (sql.includes("ALTER TABLE users")) return { rows: [] };
+            if (sql.includes("SELECT id, email, username FROM users")) return { rows: [{ id: "user-1", email: "sendayan@example.com", username: "sendayan" }] };
+            if (sql.includes("CREATE UNIQUE INDEX")) return { rows: [] };
+            if (sql.includes("SELECT id, role, status, sites FROM users")) {
+                return { rows: [{ id: "user-1", role: "Viewer", status: "Active", sites: ["Sendayan"] }] };
+            }
+            throw new Error(`Unexpected query: ${sql}`);
+        },
+    };
+    const auth = createAuthRouter({ pool, hasDatabaseConfig: true, localAdmin: { enabled: false } });
+    const token = jwt.sign({ role: "Viewer" }, process.env.JWT_SECRET, { subject: "user-1" });
+    const socket = { handshake: { auth: { token } }, data: {} };
+
+    await auth.authenticateSocket(socket, (error) => assert.equal(error, undefined));
+
+    assert.deepEqual(socket.data.authUser.sites, ["Sendayan"]);
+});
+
+test("existing email prefixes become unique usernames", async () => {
+    const assigned = [];
+    const pool = {
+        async query(sql, params) {
+            if (sql.includes("ALTER TABLE users")) return { rows: [] };
+            if (sql.includes("SELECT id, email, username FROM users")) return { rows: [
+                { id: "1", email: "sam@first.example", username: null },
+                { id: "2", email: "sam@second.example", username: null },
+            ] };
+            if (sql.includes("UPDATE users SET username")) { assigned.push(params[0]); return { rows: [] }; }
+            if (sql.includes("CREATE UNIQUE INDEX")) return { rows: [] };
+            if (sql.includes("SELECT id, role, status, sites FROM users")) return { rows: [
+                { id: "1", role: "Viewer", status: "Active", sites: ["Port Klang"] },
+            ] };
+            throw new Error(`Unexpected query: ${sql}`);
+        },
+    };
+    const auth = createAuthRouter({ pool, hasDatabaseConfig: true, localAdmin: { enabled: false } });
+    const token = jwt.sign({}, process.env.JWT_SECRET, { subject: "1" });
+    await auth.authenticateSocket({ handshake: { auth: { token } }, data: {} }, (error) => assert.equal(error, undefined));
+    assert.deepEqual(assigned, ["sam", "sam-2"]);
+});
+
+test("a migrated account signs in with its username", async () => {
+    const account = {
+        id: "user-1", username: "sam", email: "sam@example.com", name: "Sam",
+        password: "long-secret", role: "Viewer", status: "Active", sites: ["Port Klang"], last_seen: null,
+    };
+    const pool = {
+        async query(sql) {
+            if (sql.includes("ALTER TABLE users")) return { rows: [] };
+            if (sql.includes("SELECT id, email, username FROM users")) return { rows: [account] };
+            if (sql.includes("CREATE UNIQUE INDEX")) return { rows: [] };
+            if (sql.includes("WHERE LOWER(username)")) return { rows: [account] };
+            if (sql.includes("UPDATE users") && sql.includes("last_seen")) return { rows: [{ ...account, last_seen: new Date().toISOString() }] };
+            throw new Error(`Unexpected query: ${sql}`);
+        },
+    };
+    const auth = createAuthRouter({ pool, hasDatabaseConfig: true, localAdmin: { enabled: false } });
+    const response = createResponse();
+    await auth.login({ body: { username: "sam", password: "long-secret" } }, response);
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.user.username, "sam");
+    assert.ok(response.body.token);
 });
 
 test("passwords must be at least eight characters", () => {

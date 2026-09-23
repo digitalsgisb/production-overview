@@ -1,4 +1,4 @@
-﻿import { useEffect, useId, useMemo, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -22,17 +22,7 @@ const SOCKET_URL =
   DEFAULT_API_URL;
 const API_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL;
 
-const PORT_KLANG_LINES = ["ABB2", "ABB4", "ABB7"];
-const SENDAYAN_LINES = ["SDY1", "SDY2"];
-const ALL_LINE_IDS = [...PORT_KLANG_LINES, ...SENDAYAN_LINES];
 const HISTORY_LIMIT = 28;
-const LINE_DOCUMENTATION_URLS = {
-  ABB4: "https://abb4grafana.sugidigital.org/d/fe9tzft54x1xcf/abb4-smart-dashboard?orgId=1&from=now-5m&to=now&timezone=browser&refresh=5s",
-  ABB7: "https://abb7grafana.sugidigital.org/",
-  ABB2: "https://abb2pkgrafana.sugidigital.org/d/adfnddq/abb2-smart-dashboard?orgId=1&from=now-5m&to=now&timezone=browser&refresh=5s",
-  SDY1: "https://l1sdygrafana.sugidigital.org/d/adqr5dg/line-1-smart-dashboard?orgId=1&from=now-5m&to=now&timezone=browser&refresh=5s",
-  SDY2: "https://l2sdygrafana.sugidigital.org/d/ad6zlmx/line-2-smart-dashboard?orgId=1&from=now-5m&to=now&timezone=browser&refresh=5s",
-};
 const ADMIN_ROLES = ["Admin", "Supervisor", "Line Leader", "Operator", "Viewer"];
 const ADMIN_SITES = ["Port Klang", "Sendayan"];
 
@@ -99,7 +89,7 @@ function Sidebar({ activePage, isGuest, onSelectPage, onMenu, onLogout, isMobile
     });
   }
 
-  const displayName = user?.name || user?.email || "User";
+  const displayName = user?.name || user?.username || "User";
 
   return (
     <aside className={`sidebar ${isMobileNavOpen ? "is-mobile-open" : ""}`} aria-label="Main navigation">
@@ -172,42 +162,17 @@ function Sidebar({ activePage, isGuest, onSelectPage, onMenu, onLogout, isMobile
             </button>
           </>
         )}
+        {!isGuest && ["Attendance", "History"].map((page) => (
+          <button key={page} className={`icon-btn nav-btn ${activePage === page.toLowerCase() ? "is-active" : ""}`}
+            type="button" aria-label={page} aria-pressed={activePage === page.toLowerCase()}
+            onClick={() => handleSelectPage(page.toLowerCase())}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              {page === "Attendance" ? <><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M8 2v4M16 2v4M3 10h18" /></> : <><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5M12 7v5l4 2" /></>}
+            </svg>
+            <span className="icon-btn__tip">{page}</span>
+          </button>
+        ))}
 
-        {!isGuest && (
-          <>
-            <button
-              className={`icon-btn nav-btn ${activePage === "attendance" ? "is-active" : ""}`}
-              type="button"
-              aria-label="Attendance"
-              aria-pressed={activePage === "attendance"}
-              onClick={() => handleSelectPage("attendance")}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="4" width="18" height="18" rx="2"></rect>
-                <line x1="16" y1="2" x2="16" y2="6"></line>
-                <line x1="8" y1="2" x2="8" y2="6"></line>
-                <line x1="3" y1="10" x2="21" y2="10"></line>
-                <path d="m9 16 2 2 4-4"></path>
-              </svg>
-              <span className="icon-btn__tip">Attendance</span>
-            </button>
-
-            <button
-              className={`icon-btn nav-btn ${activePage === "history" ? "is-active" : ""}`}
-              type="button"
-              aria-label="History"
-              aria-pressed={activePage === "history"}
-              onClick={() => handleSelectPage("history")}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 12a9 9 0 1 0 3-6.7"></path>
-                <path d="M3 4v5h5"></path>
-                <path d="M12 7v5l4 2"></path>
-              </svg>
-              <span className="icon-btn__tip">History</span>
-            </button>
-          </>
-        )}
       </nav>
 
       <div className="sidebar-sites" aria-label="Active sites">
@@ -277,11 +242,12 @@ function getLineOee(line) {
   const performance = getNumber(getLineMetric(line, ["performance_pct"]));
   const quality = getNumber(getLineMetric(line, ["quality_pct"]));
 
+  if (explicitOee > 0) return explicitOee;
   if (availability > 0 || performance > 0 || quality > 0) {
-    return (availability + performance + quality) / 3;
+    return (availability * performance * quality) / 10000;
   }
 
-  return explicitOee > 0 ? explicitOee : 0;
+  return 0;
 }
 
 function formatPercent(value) {
@@ -370,7 +336,7 @@ function appendHistoryPoint(series = [], value, time = Date.now()) {
 
 function appendTelemetryHistory(previous, sample) {
   const time = Date.now();
-  const nextLines = ALL_LINE_IDS.reduce((acc, lineId) => {
+  const nextLines = Object.keys(sample.lines).reduce((acc, lineId) => {
     acc[lineId] = appendHistoryPoint(previous.lines?.[lineId], sample.lines[lineId] ?? 0, time);
     return acc;
   }, {});
@@ -481,7 +447,7 @@ function LineLeaderRow({ operators }) {
   );
 }
 
-function LineDetailModal({ lineId, line, onClose }) {
+function LineDetailModal({ lineId, line, config, onClose }) {
   useEffect(() => {
     if (!lineId) return undefined;
 
@@ -518,7 +484,7 @@ function LineDetailModal({ lineId, line, onClose }) {
   const progress = target > 0 ? Math.min(100, Math.round((count / target) * 100)) : 0;
   const cfg = getStatusConfig(status);
   const operators = line?.operators ?? {};
-  const documentationUrl = LINE_DOCUMENTATION_URLS[lineId];
+  const documentationUrl = config?.dashboardUrl;
 
   return (
     <div className="line-modal-overlay is-open" role="presentation" onMouseDown={onClose}>
@@ -534,6 +500,7 @@ function LineDetailModal({ lineId, line, onClose }) {
           <div>
             <span className="line-id-label">Line Detail</span>
             <h2 className="line-modal-title" id="line-modal-title">{line?.line_id ?? lineId}</h2>
+            {config?.name && config.name !== lineId && <span className="line-display-name">{config.name}</span>}
           </div>
           <button className="line-modal-close" type="button" aria-label="Close line detail" onClick={onClose}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -641,8 +608,8 @@ function LineDetailModal({ lineId, line, onClose }) {
 }
 
 function ProfileCard({ isOpen, onClose, sites, user }) {
-  const displayName = user?.name || user?.email || "User";
-  const displayId = user?.id || user?.email || "Signed in";
+  const displayName = user?.name || user?.username || "User";
+  const displayId = user?.username || user?.id || "Signed in";
 
   return (
     <>
@@ -773,6 +740,35 @@ function PasswordResetControl({ disabled, onReset }) {
   );
 }
 
+function UsernameControl({ user, busy, onUpdate }) {
+  const [username, setUsername] = useState(user.username || "");
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    if (username.trim().toLowerCase() !== user.username) onUpdate(user.id, { username: username.trim() });
+  }
+
+  return <form className="admin-username-control" onSubmit={handleSubmit}>
+    <label htmlFor={`username-${user.id}`}>Username</label>
+    <input id={`username-${user.id}`} value={username} onChange={(event) => setUsername(event.target.value)}
+      minLength="3" maxLength="32" pattern="[a-zA-Z0-9][a-zA-Z0-9._-]{2,31}" required />
+    <button type="submit" disabled={busy || username.trim().toLowerCase() === user.username}>Save username</button>
+  </form>;
+}
+
+function LineSettings({ line, busy, onUpdate }) {
+  const [draft, setDraft] = useState(line);
+  return <form className="admin-line-settings" onSubmit={(event) => { event.preventDefault(); onUpdate(line.lineId, draft); }}>
+    <strong>{line.lineId}</strong>
+    <label>Name<input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} required maxLength="80" /></label>
+    <label>Site<select value={draft.site} onChange={(event) => setDraft((current) => ({ ...current, site: event.target.value }))}>
+      {ADMIN_SITES.map((site) => <option key={site}>{site}</option>)}
+    </select></label>
+    <label>Dashboard URL (optional)<input type="url" value={draft.dashboardUrl || ""} onChange={(event) => setDraft((current) => ({ ...current, dashboardUrl: event.target.value }))} /></label>
+    <button type="submit" disabled={busy}>Save line</button>
+  </form>;
+}
+
 function AdminControlDrawer({
   busy,
   currentUserId,
@@ -780,20 +776,24 @@ function AdminControlDrawer({
   guestAccessEnabled,
   isOpen,
   onAddUser,
+  onAddLine,
   onClose,
   onRemoveUser,
   onToggleGuestAccess,
   onUpdateUser,
+  onUpdateLine,
+  lines,
   users,
 }) {
   const [query, setQuery] = useState("");
   const [draftUser, setDraftUser] = useState({
-    email: "",
+    username: "",
     name: "",
     password: "",
     role: "Viewer",
     sites: [ADMIN_SITES[0]],
   });
+  const [draftLine, setDraftLine] = useState({ lineId: "", name: "", site: ADMIN_SITES[0], dashboardUrl: "" });
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -820,7 +820,7 @@ function AdminControlDrawer({
     return users.filter((adminUser) => {
       const haystack = [
         adminUser.name,
-        adminUser.email,
+        adminUser.username,
         adminUser.role,
         adminUser.status,
         ...(adminUser.sites || []),
@@ -864,13 +864,13 @@ function AdminControlDrawer({
     event.preventDefault();
 
     const name = draftUser.name.trim();
-    const email = draftUser.email.trim();
+    const username = draftUser.username.trim();
 
-    if (!name || !email || draftUser.password.length < 8) return;
+    if (!name || !username || draftUser.password.length < 8) return;
 
     const created = await onAddUser({
       name,
-      email,
+      username,
       password: draftUser.password,
       role: draftUser.role,
       sites: draftUser.role === "Admin" ? ADMIN_SITES : normalizeAdminSites(draftUser.sites),
@@ -878,13 +878,19 @@ function AdminControlDrawer({
     if (!created) return;
 
     setDraftUser({
-      email: "",
+      username: "",
       name: "",
       password: "",
       role: "Viewer",
       sites: [ADMIN_SITES[0]],
     });
     setQuery("");
+  }
+
+  async function handleAddLine(event) {
+    event.preventDefault();
+    const created = await onAddLine(draftLine);
+    if (created) setDraftLine({ lineId: "", name: "", site: ADMIN_SITES[0], dashboardUrl: "" });
   }
 
   return (
@@ -905,7 +911,7 @@ function AdminControlDrawer({
         <header className="admin-drawer__header">
           <div>
             <p>System users</p>
-            <h2 id="admin-control-title">Admin Control</h2>
+            <h2 id="admin-control-title">Manage system</h2>
           </div>
           <button className="admin-drawer__close" type="button" aria-label="Close admin control" onClick={onClose}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -944,6 +950,21 @@ function AdminControlDrawer({
           </button>
         </section>
 
+        <details className="admin-line-management">
+          <summary>Production lines · {lines.length}</summary>
+          <p>Register a line here, then send its line ID from Node-RED using the shared <code>x-api-key</code> from the server configuration.</p>
+          <form className="admin-line-settings" onSubmit={handleAddLine}>
+            <label>Line ID<input value={draftLine.lineId} onChange={(event) => setDraftLine((current) => ({ ...current, lineId: event.target.value.toUpperCase() }))} required maxLength="24" pattern="[A-Z0-9][A-Z0-9_-]{1,23}" placeholder="ABB8" /></label>
+            <label>Name<input value={draftLine.name} onChange={(event) => setDraftLine((current) => ({ ...current, name: event.target.value }))} required maxLength="80" placeholder="Assembly 8" /></label>
+            <label>Site<select value={draftLine.site} onChange={(event) => setDraftLine((current) => ({ ...current, site: event.target.value }))}>
+              {ADMIN_SITES.map((site) => <option key={site}>{site}</option>)}
+            </select></label>
+            <label>Dashboard URL (optional)<input type="url" value={draftLine.dashboardUrl} onChange={(event) => setDraftLine((current) => ({ ...current, dashboardUrl: event.target.value }))} /></label>
+            <button type="submit" disabled={busy}>Add line</button>
+          </form>
+          <div className="admin-line-list">{lines.map((line) => <LineSettings key={`${line.lineId}:${line.name}:${line.site}:${line.dashboardUrl}`} line={line} busy={busy} onUpdate={onUpdateLine} />)}</div>
+        </details>
+
         <label className="admin-search" htmlFor="admin-user-search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8"></circle>
@@ -959,7 +980,8 @@ function AdminControlDrawer({
         </label>
 
         <form className="admin-add-user" onSubmit={handleAddUser}>
-          <div className="admin-section-title">Add User</div>
+          <div className="admin-section-title">Create an account</div>
+          <p className="admin-role-help">Viewer can monitor live lines. Supervisor, Line Leader and Operator currently have the same viewing access. Admin can manage accounts and sees every site.</p>
           <div className="admin-form-grid">
             <label>
               <span>Name</span>
@@ -971,12 +993,15 @@ function AdminControlDrawer({
               />
             </label>
             <label>
-              <span>Email</span>
+              <span>Username</span>
               <input
-                type="email"
+                type="text"
                 required
-                value={draftUser.email}
-                onChange={(event) => setDraftUser((current) => ({ ...current, email: event.target.value }))}
+                minLength="3"
+                maxLength="32"
+                pattern="[a-zA-Z0-9][a-zA-Z0-9._-]{2,31}"
+                value={draftUser.username}
+                onChange={(event) => setDraftUser((current) => ({ ...current, username: event.target.value }))}
               />
             </label>
             <label>
@@ -1017,9 +1042,10 @@ function AdminControlDrawer({
               </label>
             ))}
             {draftUser.role === "Admin" && <small>Admins automatically receive full access to every site.</small>}
+            {draftUser.role !== "Admin" && <small>Choose which sites this account can view.</small>}
           </div>
           <button className="admin-add-user__submit" type="submit" disabled={busy}>
-            {busy ? "Saving..." : "Add User"}
+            {busy ? "Saving..." : "Create account"}
           </button>
         </form>
 
@@ -1030,13 +1056,15 @@ function AdminControlDrawer({
                 <span className="admin-user-avatar"><PersonIcon /></span>
                 <div className="admin-user-identity">
                   <strong>{adminUser.name}</strong>
-                  <small>{adminUser.email}</small>
+                  <small>@{adminUser.username}</small>
                 </div>
                 <span className={`admin-status-badge ${adminUser.status === "Active" ? "is-active" : ""}`}>
                   {adminUser.status}
                 </span>
               </div>
-
+              <details className="admin-user-details">
+                <summary>Manage {adminUser.name} · {adminUser.role} · {normalizeAdminSites(adminUser.sites).join(", ")}</summary>
+              <UsernameControl key={`${adminUser.id}:${adminUser.username}`} user={adminUser} busy={busy} onUpdate={onUpdateUser} />
               <div className="admin-user-row__controls">
                 <label>
                   <span>Role</span>
@@ -1056,7 +1084,7 @@ function AdminControlDrawer({
                   disabled={busy || adminUser.id === currentUserId}
                   onClick={() => onUpdateUser(adminUser.id, { status: adminUser.status === "Active" ? "Paused" : "Active" })}
                 >
-                  {adminUser.status === "Active" ? "Pause" : "Activate"}
+                  {adminUser.status === "Active" ? "Pause sign-in" : "Allow sign-in"}
                 </button>
                 <button
                   className="admin-remove-user"
@@ -1064,7 +1092,7 @@ function AdminControlDrawer({
                   disabled={busy || adminUser.id === currentUserId}
                   onClick={() => onRemoveUser(adminUser.id)}
                 >
-                  Remove
+                  Remove account
                 </button>
               </div>
 
@@ -1086,6 +1114,7 @@ function AdminControlDrawer({
                 disabled={busy}
                 onReset={(password) => onUpdateUser(adminUser.id, { password })}
               />
+              </details>
               <div className="admin-user-row__meta">Last seen: {formatLastSeen(adminUser.lastSeen)}</div>
             </article>
           ))}
@@ -1113,7 +1142,7 @@ function createFallbackLine(lineId) {
   };
 }
 
-function ProductionSection({ id, title, lineIds, lines, onSelectLine, readOnly = false }) {
+function ProductionSection({ id, title, lineIds, lines, configs, onSelectLine, readOnly = false }) {
   const sectionLines = lineIds.map((lineId) => lines[lineId] ?? createFallbackLine(lineId));
   const runningCount = sectionLines.filter((line) => {
     const status = String(getLineValue(line, ["machine_mode", "mode", "status"], "offline"))
@@ -1144,6 +1173,7 @@ function ProductionSection({ id, title, lineIds, lines, onSelectLine, readOnly =
           <LineCard
             key={lineId}
             lineId={lineId}
+            displayName={configs.find((config) => config.lineId === lineId)?.name}
             line={lines[lineId] ?? createFallbackLine(lineId)}
             onSelectLine={onSelectLine}
             readOnly={readOnly}
@@ -1447,7 +1477,7 @@ function MobileHeader({ activePage, adminOpen, displayName, isAdmin, isGuest, on
         <button
           className={`mobile-header__icon ${adminOpen ? "is-active" : ""}`}
           type="button"
-          aria-label="Admin users"
+          aria-label="Manage system"
           aria-pressed={adminOpen}
           onClick={onOpenAdmin}
         >
@@ -1478,7 +1508,7 @@ function MobileHero({ displayName, isGuest, totalSummary, sites }) {
             <span>{site.name}</span>
           </a>
         ))}
-        <a href="#mobile-output" aria-label={`${totalSummary.rejects} rejects. Jump to output summary.`}>
+        <a href="#mobile-output" onClick={() => { document.getElementById("mobile-output").open = true; }} aria-label={`${totalSummary.rejects} rejects. Open shift metrics.`}>
           <strong>{totalSummary.rejects}</strong>
           <span>Reject</span>
         </a>
@@ -1547,7 +1577,7 @@ function MobileMetricDeck({ totalSummary, history }) {
           <span>Max {formatPercent(meta.max)}%</span>
         </div>
       </div>
-      <div className="mobile-output-card" id="mobile-output">
+      <div className="mobile-output-card">
         <div className="mobile-card-head">
           <span>Output</span>
           <small>{totalSummary.progress}%</small>
@@ -1583,18 +1613,25 @@ function MobileMetricDeck({ totalSummary, history }) {
 }
 
 function PlaceholderPage({ title }) {
-  return (
-    <section className="placeholder-page">
-      <h2>{title}</h2>
-      <p>In progress</p>
-    </section>
-  );
+  return <section className="placeholder-page"><h2>{title}</h2><p>In progress</p></section>;
 }
 
 function Dashboard({ user, onLogout }) {
   const isAdmin = user?.role === "Admin";
   const isGuest = user?.role === "Guest";
+  const [lineConfigs, setLineConfigs] = useState([]);
+  const [lineError, setLineError] = useState("");
+  const refreshLineConfigs = useCallback(async () => {
+    const data = await authenticatedRequest("/lines");
+    setLineConfigs(data.lines || []);
+    setLineError("");
+  }, []);
+  const visibleSites = useMemo(() => (isAdmin || isGuest ? ADMIN_SITES : normalizeAdminSites(user?.sites)), [isAdmin, isGuest, user?.sites]);
+  const visibleLineIds = useMemo(() => lineConfigs.filter((config) => visibleSites.includes(config.site)).map((config) => config.lineId), [lineConfigs, visibleSites]);
+  const siteLineIds = useCallback((site) => lineConfigs.filter((config) => config.site === site).map((config) => config.lineId), [lineConfigs]);
   const [lines, setLines] = useState({});
+  const [feedConnected, setFeedConnected] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState(null);
   const [activePage, setActivePage] = useState("progress");
   const [profileOpen, setProfileOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
@@ -1606,12 +1643,17 @@ function Dashboard({ user, onLogout }) {
   const [selectedLineId, setSelectedLineId] = useState(null);
   const [telemetryHistory, setTelemetryHistory] = useState({ overall: [], lines: {} });
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => refreshLineConfigs().catch((error) => setLineError(error.message)), 0);
+    return () => window.clearTimeout(timer);
+  }, [refreshLineConfigs]);
+
   const seededLines = useMemo(() => {
-    return ALL_LINE_IDS.reduce((acc, lineId) => {
+    return visibleLineIds.reduce((acc, lineId) => {
       acc[lineId] = lines[lineId] ?? createFallbackLine(lineId);
       return acc;
     }, {});
-  }, [lines]);
+  }, [lines, visibleLineIds]);
 
   const siteSummaries = useMemo(() => {
     const buildSite = (key, name, lineIds) => {
@@ -1627,13 +1669,13 @@ function Dashboard({ user, onLogout }) {
     };
 
     return [
-      buildSite("klang", "Port Klang", PORT_KLANG_LINES),
-      buildSite("sendayan", "Sendayan", SENDAYAN_LINES),
-    ];
-  }, [seededLines]);
+      buildSite("klang", "Port Klang", siteLineIds("Port Klang")),
+      buildSite("sendayan", "Sendayan", siteLineIds("Sendayan")),
+    ].filter((site) => visibleSites.includes(site.name));
+  }, [seededLines, visibleSites, siteLineIds]);
 
   const totalSummary = useMemo(() => {
-    const allLines = ALL_LINE_IDS.map((lineId) => seededLines[lineId] ?? createFallbackLine(lineId));
+    const allLines = visibleLineIds.map((lineId) => seededLines[lineId] ?? createFallbackLine(lineId));
     const actual = allLines.reduce((sum, line) => sum + getNumber(getLineMetric(line, ["product_count", "count"])), 0);
     const target = allLines.reduce((sum, line) => sum + getNumber(getLineMetric(line, ["target", "hourly_plan"])), 0);
     const rejects = allLines.reduce((sum, line) => sum + getNumber(getLineMetric(line, ["product_reject", "reject"])), 0);
@@ -1644,17 +1686,17 @@ function Dashboard({ user, onLogout }) {
     const progress = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 0;
 
     return { actual, components, target, rejects, oee, progress, lineCount: allLines.length };
-  }, [seededLines]);
+  }, [seededLines, visibleLineIds]);
 
   const telemetrySample = useMemo(() => {
     return {
       overall: totalSummary.oee,
-      lines: ALL_LINE_IDS.reduce((acc, lineId) => {
+      lines: visibleLineIds.reduce((acc, lineId) => {
         acc[lineId] = getLineOee(seededLines[lineId] ?? createFallbackLine(lineId));
         return acc;
       }, {}),
     };
-  }, [seededLines, totalSummary.oee]);
+  }, [seededLines, totalSummary.oee, visibleLineIds]);
 
   const telemetrySampleRef = useRef(telemetrySample);
 
@@ -1698,9 +1740,9 @@ function Dashboard({ user, onLogout }) {
     };
   }, []);
 
-  const displayName = user?.name || user?.email || "User";
+  const displayName = user?.name || user?.username || "User";
   const focusLineId = useMemo(() => {
-    const runningLine = ALL_LINE_IDS.find((lineId) => {
+    const runningLine = visibleLineIds.find((lineId) => {
       const status = String(getLineValue(seededLines[lineId], ["machine_mode", "mode", "status"], "offline"))
         .trim()
         .toLowerCase()
@@ -1709,8 +1751,8 @@ function Dashboard({ user, onLogout }) {
       return status === "normal" || status === "running";
     });
 
-    return runningLine || PORT_KLANG_LINES[0];
-  }, [seededLines]);
+    return runningLine || visibleLineIds[0];
+  }, [seededLines, visibleLineIds]);
 
   useEffect(() => {
     const socket = io(SOCKET_URL, {
@@ -1720,10 +1762,15 @@ function Dashboard({ user, onLogout }) {
     });
 
     socket.on("connect", () => {
-      ALL_LINE_IDS.forEach((lineId) => socket.emit("join-line", lineId));
+      setFeedConnected(true);
+      visibleLineIds.forEach((lineId) => socket.emit("join-line", lineId));
     });
+    socket.on("lines:changed", () => refreshLineConfigs().catch((error) => setLineError(error.message)));
+
+    socket.on("disconnect", () => setFeedConnected(false));
 
     socket.on("line:data", (data) => {
+      setLastUpdate(new Date());
       setLines((previousLines) => ({
         ...previousLines,
         [data.line_id]: data.line,
@@ -1731,6 +1778,7 @@ function Dashboard({ user, onLogout }) {
     });
 
     socket.on("line:update", (data) => {
+      setLastUpdate(new Date());
       setLines((previousLines) => ({
         ...previousLines,
         [data.line_id]: {
@@ -1745,13 +1793,14 @@ function Dashboard({ user, onLogout }) {
     });
 
     socket.on("connect_error", (error) => {
+      setFeedConnected(false);
       if (error?.data?.code === "AUTH_REQUIRED" && onLogout) {
         onLogout();
       }
     });
 
     return () => socket.disconnect();
-  }, [onLogout]);
+  }, [onLogout, visibleLineIds, refreshLineConfigs]);
 
   function handleMenu() {
     if (isGuest) return;
@@ -1787,6 +1836,34 @@ function Dashboard({ user, onLogout }) {
     } catch (error) {
       setAdminError(error.message);
       return false;
+    } finally {
+      setAdminBusy(false);
+    }
+  }
+
+  async function handleAddLine(line) {
+    setAdminBusy(true);
+    setAdminError("");
+    try {
+      await authenticatedRequest("/admin/lines", { method: "POST", body: JSON.stringify(line) });
+      await refreshLineConfigs();
+      return true;
+    } catch (error) {
+      setAdminError(error.message);
+      return false;
+    } finally {
+      setAdminBusy(false);
+    }
+  }
+
+  async function handleUpdateLine(lineId, line) {
+    setAdminBusy(true);
+    setAdminError("");
+    try {
+      await authenticatedRequest(`/admin/lines/${encodeURIComponent(lineId)}`, { method: "PATCH", body: JSON.stringify(line) });
+      await refreshLineConfigs();
+    } catch (error) {
+      setAdminError(error.message);
     } finally {
       setAdminBusy(false);
     }
@@ -1895,10 +1972,13 @@ function Dashboard({ user, onLogout }) {
           guestAccessEnabled={guestAccessEnabled}
           isOpen={adminOpen}
           onAddUser={handleAddAdminUser}
+          onAddLine={handleAddLine}
           onClose={() => setAdminOpen(false)}
           onRemoveUser={handleRemoveAdminUser}
           onToggleGuestAccess={handleToggleGuestAccess}
           onUpdateUser={handleUpdateAdminUser}
+          onUpdateLine={handleUpdateLine}
+          lines={lineConfigs}
           users={adminUsers}
         />
       )}
@@ -1906,6 +1986,7 @@ function Dashboard({ user, onLogout }) {
         <LineDetailModal
           lineId={selectedLineId}
           line={selectedLineId ? seededLines[selectedLineId] : null}
+          config={lineConfigs.find((config) => config.lineId === selectedLineId)}
           onClose={() => setSelectedLineId(null)}
         />
       )}
@@ -1962,7 +2043,7 @@ function Dashboard({ user, onLogout }) {
               <button
                 className={adminOpen ? "is-active" : ""}
                 type="button"
-                aria-label="Admin users"
+                aria-label="Manage system"
                 aria-pressed={adminOpen}
                 onClick={handleToggleAdmin}
               >
@@ -1975,7 +2056,11 @@ function Dashboard({ user, onLogout }) {
         {activePage === "progress" && (
           <>
             <MobileHero displayName={displayName} isGuest={isGuest} totalSummary={totalSummary} sites={siteSummaries} />
-            <MobileMetricDeck totalSummary={totalSummary} history={telemetryHistory} />
+            <div className={`live-feed-status ${feedConnected ? "is-connected" : ""}`} role="status">
+              <span className="live-feed-status__dot" aria-hidden="true" />
+              {feedConnected ? `Live feed connected${lastUpdate ? ` · Updated ${lastUpdate.toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" })}` : " · Waiting for line data"}` : "Live feed disconnected · Reconnecting"}
+            </div>
+            {lineError && <div className="admin-message" role="alert">Production lines could not load: {lineError}</div>}
 
             <section className="dashboard-title-row">
               <div>
@@ -2014,7 +2099,7 @@ function Dashboard({ user, onLogout }) {
               />
             </section>
 
-            {!isGuest && (
+            {!isGuest && focusLineId && (
               <ActiveLinePanel
                 lineId={focusLineId}
                 line={seededLines[focusLineId]}
@@ -2022,28 +2107,32 @@ function Dashboard({ user, onLogout }) {
               />
             )}
 
-            <ProductionSection
+            {visibleSites.includes("Port Klang") && <ProductionSection
               id="site-klang"
               title="Port Klang"
-              lineIds={PORT_KLANG_LINES}
+              lineIds={siteLineIds("Port Klang")}
               lines={seededLines}
+              configs={lineConfigs}
               onSelectLine={setSelectedLineId}
               readOnly={isGuest}
-            />
-            <ProductionSection
+            />}
+            {visibleSites.includes("Sendayan") && <ProductionSection
               id="site-sendayan"
               title="Sendayan"
-              lineIds={SENDAYAN_LINES}
+              lineIds={siteLineIds("Sendayan")}
               lines={seededLines}
+              configs={lineConfigs}
               onSelectLine={setSelectedLineId}
               readOnly={isGuest}
-            />
+            />}
+            <details className="mobile-insights" id="mobile-output">
+              <summary>Shift metrics and trends</summary>
+              <MobileMetricDeck totalSummary={totalSummary} history={telemetryHistory} />
+            </details>
           </>
         )}
-
         {activePage === "attendance" && <PlaceholderPage title="Attendance" />}
         {activePage === "history" && <PlaceholderPage title="History" />}
-        {activePage === "logged-out" && <PlaceholderPage title="Logged out" />}
 
         <footer className="dashboard-footer">
           <span>© Digital Transformation Unit</span>
