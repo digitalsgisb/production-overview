@@ -204,6 +204,7 @@ io.on('connection', (socket) => {
 app.post("/login", auth.login);
 app.get("/settings/public", auth.getPublicSettings);
 app.post("/guest-session", auth.createGuestSession);
+app.get("/admin/guest-invite", auth.requireAdmin, auth.getGuestInvite);
 app.get("/admin/users", auth.requireAdmin, auth.listUsers);
 app.post("/admin/users", auth.requireAdmin, auth.createUser);
 app.patch("/admin/settings/guest-access", auth.requireAdmin, auth.updateGuestAccess);

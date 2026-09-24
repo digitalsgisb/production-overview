@@ -150,6 +150,44 @@ test("disabled guest access refuses to create a guest session", async () => {
     assert.equal(response.body.message, "Guest access is currently disabled.");
 });
 
+test("guest sessions require the admin QR invite code", async () => {
+    let inviteCode = "";
+    const pool = {
+        async query(sql, params) {
+            if (sql.includes("CREATE TABLE")) return { rows: [] };
+            if (sql.includes("ON CONFLICT (setting_key) DO NOTHING")) {
+                inviteCode ||= params[1];
+                return { rows: [] };
+            }
+            if (sql.includes("SELECT setting_value") && params[0] === "guest_access_enabled") {
+                return { rows: [{ setting_value: "true" }] };
+            }
+            if (sql.includes("SELECT setting_value") && params[0] === "guest_invite_code") {
+                return { rows: [{ setting_value: inviteCode }] };
+            }
+            throw new Error(`Unexpected query: ${sql}`);
+        },
+    };
+    const auth = createAuthRouter({ pool, hasDatabaseConfig: true, localAdmin: { enabled: false } });
+    const adminResponse = createResponse();
+    await auth.getGuestInvite({}, adminResponse);
+    assert.match(adminResponse.body.code, /^[A-Za-z0-9_-]{32}$/);
+
+    const missing = createResponse();
+    await auth.createGuestSession({ body: {} }, missing);
+    assert.equal(missing.statusCode, 403);
+
+    const wrong = createResponse();
+    await auth.createGuestSession({ body: { code: "x".repeat(32) } }, wrong);
+    assert.equal(wrong.statusCode, 403);
+
+    const valid = createResponse();
+    await auth.createGuestSession({ body: { code: adminResponse.body.code } }, valid);
+    assert.equal(valid.statusCode, 200);
+    assert.equal(valid.body.user.role, "Guest");
+    assert.ok(valid.body.token);
+});
+
 test("admin guest toggle persists the setting and triggers revocation", async () => {
     const queries = [];
     let changedTo;

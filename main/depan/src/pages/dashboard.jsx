@@ -12,6 +12,7 @@ import {
   YAxis,
 } from "recharts";
 import { io } from "socket.io-client";
+import { QRCodeSVG } from "qrcode.react";
 import LineCard from "./linecard.jsx";
 import "./dashboard.css";
 
@@ -108,7 +109,9 @@ function Sidebar({ activePage, adminOpen, isAdmin, isGuest, onSelectPage, onMana
             <span>Live control room</span>
           </div>
         </div>
-        <button className="sidebar-close" type="button" aria-label="Close menu" onClick={onCloseMobileNav}>×</button>
+        <button className="sidebar-close" type="button" aria-label="Close menu" onClick={onCloseMobileNav}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19" /></svg>
+        </button>
       </div>
 
       <nav className="sidebar__group sidebar__group--middle" aria-label="Primary">
@@ -875,6 +878,8 @@ function AdminControlDrawer({
   users,
 }) {
   const [query, setQuery] = useState("");
+  const [guestCode, setGuestCode] = useState("");
+  const [guestQrError, setGuestQrError] = useState("");
   const [draftUser, setDraftUser] = useState({
     username: "",
     name: "",
@@ -899,6 +904,26 @@ function AdminControlDrawer({
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (!isOpen || !guestAccessEnabled) return undefined;
+    let cancelled = false;
+    authenticatedRequest("/admin/guest-invite")
+      .then((data) => {
+        if (!cancelled) {
+          setGuestCode(data.code);
+          setGuestQrError("");
+        }
+      })
+      .catch((requestError) => {
+        if (!cancelled) setGuestQrError(requestError.message);
+      });
+    return () => { cancelled = true; };
+  }, [isOpen, guestAccessEnabled]);
+
+  const guestUrl = guestCode
+    ? `${window.location.origin}${window.location.pathname}#guest=${encodeURIComponent(guestCode)}`
+    : "";
 
   const filteredUsers = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -1018,8 +1043,8 @@ function AdminControlDrawer({
             <strong>{guestAccessEnabled ? "Enabled" : "Disabled"}</strong>
             <small>
               {guestAccessEnabled
-                ? "Anyone with the login page can request a view-only guest session."
-                : "The guest button is hidden and existing guest sessions are disconnected."}
+                ? "Show this QR code to open a view-only guest session."
+                : "Guest QR access is off and existing guest sessions are disconnected."}
             </small>
           </div>
           <button
@@ -1032,6 +1057,21 @@ function AdminControlDrawer({
             {guestAccessEnabled ? "Disable Guest" : "Enable Guest"}
           </button>
         </section>
+
+        {guestAccessEnabled && (
+          <section className="admin-guest-qr" aria-label="Guest QR code">
+            <strong>Guest access QR</strong>
+            {guestQrError ? <p role="alert">{guestQrError}</p> : guestUrl ? (
+              <div className="admin-guest-qr__code" role="img" aria-label="QR code for the guest view">
+                <QRCodeSVG value={guestUrl} size={192} level="M" />
+              </div>
+            ) : <p>Preparing QR code…</p>}
+            <small>Visitors can scan this code to open the live, view-only dashboard.</small>
+            {["localhost", "127.0.0.1"].includes(window.location.hostname) && (
+              <small>For other phones, open this dashboard using its network address before showing the QR.</small>
+            )}
+          </section>
+        )}
 
         <label className="admin-search" htmlFor="admin-user-search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

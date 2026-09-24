@@ -2499,6 +2499,45 @@ button {
   opacity: 0.55;
 }
 
+.admin-guest-qr {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: var(--bg-panel);
+  text-align: center;
+}
+
+.admin-guest-qr > strong {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.admin-guest-qr__code {
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.admin-guest-qr__code svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.admin-guest-qr > small,
+.admin-guest-qr > p {
+  max-width: 260px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .admin-users-list {
   display: flex;
   flex-direction: column;
@@ -3299,14 +3338,6 @@ button {
     visibility: visible;
   }
 
-  .sidebar__group--top {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-  }
-
   .sidebar__group,
   .sidebar__group--middle,
   .sidebar__group--bottom {
@@ -3317,8 +3348,19 @@ button {
     gap: 6px;
   }
 
+  .sidebar .sidebar__group--top {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
   .sidebar-brand {
     min-width: 0;
+    flex: 1;
+    justify-content: flex-start;
+    gap: 10px;
   }
 
   .sidebar-brand div {
@@ -3326,8 +3368,8 @@ button {
   }
 
   .sidebar-close {
-    width: 34px;
-    height: 34px;
+    width: 38px;
+    height: 38px;
     display: grid;
     flex: none;
     place-items: center;
@@ -3335,8 +3377,12 @@ button {
     border-radius: 8px;
     background: var(--bg-panel-soft);
     color: var(--text-primary);
-    font-size: 24px;
     cursor: pointer;
+  }
+
+  .sidebar-close svg {
+    width: 19px;
+    height: 19px;
   }
 
   .sidebar .nav-btn,

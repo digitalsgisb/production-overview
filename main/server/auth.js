@@ -7,6 +7,7 @@ const STATUSES = ["Active", "Paused"];
 const SITES = ["Port Klang", "Sendayan"];
 const BCRYPT_ROUNDS = 12;
 const GUEST_SETTING_KEY = "guest_access_enabled";
+const GUEST_INVITE_KEY = "guest_invite_code";
 
 function normalizeSites(sites, role) {
     if (role === "Admin") return [...SITES];
@@ -107,9 +108,10 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessCh
             settingsSchemaPromise = pool.query(`
                 CREATE TABLE IF NOT EXISTS production_overview_settings (
                     setting_key VARCHAR(50) PRIMARY KEY,
-                    setting_value VARCHAR(20) NOT NULL,
+                    setting_value TEXT NOT NULL,
                     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                 );
+                ALTER TABLE production_overview_settings ALTER COLUMN setting_value TYPE TEXT;
                 INSERT INTO production_overview_settings (setting_key, setting_value)
                 VALUES ('${GUEST_SETTING_KEY}', 'true')
                 ON CONFLICT (setting_key) DO NOTHING;
@@ -128,6 +130,20 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessCh
             [GUEST_SETTING_KEY],
         );
         return result.rows[0]?.setting_value === "true";
+    }
+
+    async function getGuestInviteCode() {
+        await ensureSettingsSchema();
+        await pool.query(`
+            INSERT INTO production_overview_settings (setting_key, setting_value)
+            VALUES ($1, $2)
+            ON CONFLICT (setting_key) DO NOTHING
+        `, [GUEST_INVITE_KEY, crypto.randomBytes(24).toString("base64url")]);
+        const result = await pool.query(
+            "SELECT setting_value FROM production_overview_settings WHERE setting_key = $1",
+            [GUEST_INVITE_KEY],
+        );
+        return result.rows[0]?.setting_value || "";
     }
 
     function signToken(user) {
@@ -292,6 +308,14 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessCh
                 return response.status(403).json({ message: "Guest access is currently disabled." });
             }
 
+            const providedCode = String(request.body?.code || "");
+            const inviteCode = await getGuestInviteCode();
+            if (!/^[A-Za-z0-9_-]{32}$/.test(providedCode) ||
+                !/^[A-Za-z0-9_-]{32}$/.test(inviteCode) ||
+                !crypto.timingSafeEqual(Buffer.from(providedCode), Buffer.from(inviteCode))) {
+                return response.status(403).json({ message: "This guest QR code is invalid." });
+            }
+
             const user = {
                 id: "guest",
                 username: "guest",
@@ -307,6 +331,21 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessCh
         } catch (error) {
             console.error("Create guest session failed:", error.message);
             return response.status(500).json({ message: "Unable to start guest access." });
+        }
+    }
+
+    async function getGuestInvite(request, response) {
+        try {
+            if (!hasDatabaseConfig) {
+                return response.status(503).json({ message: "Guest access is unavailable." });
+            }
+            if (!await isGuestAccessEnabled()) {
+                return response.status(403).json({ message: "Enable guest access to show the QR code." });
+            }
+            return response.json({ code: await getGuestInviteCode() });
+        } catch (error) {
+            console.error("Load guest invite failed:", error.message);
+            return response.status(500).json({ message: "Unable to load the guest QR code." });
         }
     }
 
@@ -528,6 +567,7 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessCh
         requireSession,
         requireAdmin,
         getPublicSettings,
+        getGuestInvite,
         listUsers,
         createUser,
         updateGuestAccess,

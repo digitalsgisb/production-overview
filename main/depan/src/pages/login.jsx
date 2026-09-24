@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./login.css";
 
 const DEFAULT_API_URL = import.meta.env.DEV
@@ -9,66 +9,56 @@ const API_URL = import.meta.env.DEV
   : window.location.origin;
 const LOGIN_URL = `${API_URL}/login`;
 const GUEST_SESSION_URL = `${API_URL}/guest-session`;
-const PUBLIC_SETTINGS_URL = `${API_URL}/settings/public`;
+
+function storeSession(token, user, onLoginSuccess) {
+  localStorage.setItem("token", token);
+  localStorage.setItem("userId", user.id);
+  localStorage.setItem("username", user.username || "");
+  localStorage.setItem("name", user.name);
+  localStorage.setItem("role", user.role);
+  localStorage.setItem("status", user.status);
+  localStorage.setItem("sites", JSON.stringify(user.sites || []));
+  onLoginSuccess(user);
+}
 
 function Login({ onLoginSuccess }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
-  const [guestAccessEnabled, setGuestAccessEnabled] = useState(false);
   const [guestLoading, setGuestLoading] = useState(false);
   const [loading, setLoading] = useState(false);
+  const guestCodeRef = useRef(new URLSearchParams(window.location.hash.slice(1)).get("guest"));
 
   useEffect(() => {
+    const code = guestCodeRef.current;
+    if (!code) return undefined;
+    window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
     let cancelled = false;
-
-    fetch(PUBLIC_SETTINGS_URL)
-      .then((response) => response.ok ? response.json() : { guestAccessEnabled: false })
-      .then((data) => {
-        if (!cancelled) setGuestAccessEnabled(data.guestAccessEnabled === true);
-      })
-      .catch(() => {
-        if (!cancelled) setGuestAccessEnabled(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  function storeSession(token, user) {
-    localStorage.setItem("token", token);
-    localStorage.setItem("userId", user.id);
-    localStorage.setItem("username", user.username || "");
-    localStorage.setItem("name", user.name);
-    localStorage.setItem("role", user.role);
-    localStorage.setItem("status", user.status);
-    localStorage.setItem("sites", JSON.stringify(user.sites || []));
-    onLoginSuccess(user);
-  }
-
-  async function handleGuestAccess() {
-    setError("");
-    setGuestLoading(true);
-
-    try {
-      const response = await fetch(GUEST_SESSION_URL, { method: "POST" });
-      const data = await response.json();
-
-      if (!response.ok) {
-        setGuestAccessEnabled(false);
-        setError(data.message || "Guest access is unavailable.");
-        return;
+    const openGuestView = async () => {
+      setGuestLoading(true);
+      try {
+        const response = await fetch(GUEST_SESSION_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code }),
+        });
+        const data = await response.json();
+        if (cancelled) return;
+        if (!response.ok) {
+          setError(data.message || "Guest access is unavailable.");
+          return;
+        }
+        storeSession(data.token, data.user, onLoginSuccess);
+      } catch {
+        if (!cancelled) setError("Connection to server failed");
+      } finally {
+        if (!cancelled) setGuestLoading(false);
       }
-
-      storeSession(data.token, data.user);
-    } catch {
-      setError("Connection to server failed");
-    } finally {
-      setGuestLoading(false);
-    }
-  }
+    };
+    openGuestView();
+    return () => { cancelled = true; };
+  }, [onLoginSuccess]);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -97,7 +87,7 @@ function Login({ onLoginSuccess }) {
         return;
       }
 
-      storeSession(data.token, data.user);
+      storeSession(data.token, data.user, onLoginSuccess);
     } catch {
       setError("Connection to server failed");
     } finally {
@@ -168,20 +158,10 @@ function Login({ onLoginSuccess }) {
 
             {error && <p className="login-form__error">{error}</p>}
 
-            <button className="submit-btn" type="submit" disabled={loading}>
+            <button className="submit-btn" type="submit" disabled={loading || guestLoading}>
               {loading ? "Logging in..." : "Log In"}
             </button>
-
-            {guestAccessEnabled && (
-              <>
-                <div className="login-divider"><span>or</span></div>
-
-                <button className="guest-btn" type="button" disabled={loading || guestLoading} onClick={handleGuestAccess}>
-                  {guestLoading ? "Opening guest view..." : "Continue as Guest"}
-                </button>
-                <p className="guest-access-note">View live production cards without access to details or controls.</p>
-              </>
-            )}
+            {guestLoading && <p className="guest-access-note" role="status">Opening guest view…</p>}
           </form>
         </section>
       </section>
