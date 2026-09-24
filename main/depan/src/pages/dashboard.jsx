@@ -82,6 +82,9 @@ async function loadPublicSettings() {
 
 function Sidebar({ activePage, adminOpen, isAdmin, isGuest, onSelectPage, onManageAccounts, onLogout, isMobileNavOpen, onCloseMobileNav, sites = [] }) {
   function handleSelectPage(page) {
+    if (page !== activePage && window.matchMedia("(max-width: 767px)").matches) {
+      window.scrollTo(0, 0);
+    }
     onSelectPage(page);
     onCloseMobileNav();
   }
@@ -1480,7 +1483,7 @@ function ActiveLinePanel({ lineId, line, onSelectLine }) {
   );
 }
 
-function MobileHeader({ activePage, adminOpen, displayName, isAdmin, isGuest, onLiveShift, onOpenAdmin, onOpenProfile, totalSummary }) {
+function MobileHeader({ adminOpen, displayName, isAdmin, isGuest, onOpenAdmin, onOpenProfile }) {
   return (
     <header className={`mobile-header ${isGuest ? "mobile-header--guest" : ""} ${isAdmin ? "mobile-header--admin" : ""}`} aria-label="Mobile dashboard header">
       <button
@@ -1497,19 +1500,6 @@ function MobileHeader({ activePage, adminOpen, displayName, isAdmin, isGuest, on
         <span className="mobile-header__identity">
           <small>Sugihara</small>
           <strong>Production Overview</strong>
-        </span>
-      </button>
-
-      <button
-        className={`mobile-header__live ${activePage === "progress" ? "is-active" : ""}`}
-        type="button"
-        aria-label="Open live shift overview"
-        aria-pressed={activePage === "progress"}
-        onClick={onLiveShift}
-      >
-        <span>
-          <small>OEE</small>
-          <strong>{formatPercent(totalSummary.oee)}%</strong>
         </span>
       </button>
 
@@ -1539,35 +1529,6 @@ function MobileHeader({ activePage, adminOpen, displayName, isAdmin, isGuest, on
         </button>
       )}
     </header>
-  );
-}
-
-function MobileHero({ displayName, isGuest, totalSummary, sites }) {
-  const firstName = displayName.split(" ")[0] || "Team";
-
-  return (
-    <section className="mobile-hero" aria-label="Production summary">
-      <div className="mobile-hero__intro">
-        <h1>{isGuest ? "Hello, Visitor" : `Hello, ${firstName}`}</h1>
-      </div>
-      <nav className="mobile-site-strip" aria-label="Jump to production details">
-        {sites.map((site) => (
-          <a
-            key={site.key}
-            className={site.progress >= 80 ? "is-good" : ""}
-            href={`#site-${site.key}`}
-            aria-label={`${site.name}: ${site.oee}% OEE. Jump to ${site.name} lines.`}
-          >
-            <strong>{site.oee}%</strong>
-            <span>{site.name}</span>
-          </a>
-        ))}
-        <a href="#mobile-output" onClick={() => { document.getElementById("mobile-output").open = true; }} aria-label={`${totalSummary.rejects} rejects. Open shift metrics.`}>
-          <strong>{totalSummary.rejects}</strong>
-          <span>Reject</span>
-        </a>
-      </nav>
-    </section>
   );
 }
 
@@ -2034,14 +1995,6 @@ function Dashboard({ user, onLogout }) {
     setMobileNavOpen(false);
   }
 
-  function handleLiveShift() {
-    setActivePage("progress");
-    setProfileOpen(false);
-    setAdminOpen(false);
-    setMobileNavOpen(false);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
   return (
     <div className="app-shell">
       <Sidebar
@@ -2090,15 +2043,12 @@ function Dashboard({ user, onLogout }) {
       )}
       <main className="dashboard-content">
         <MobileHeader
-          activePage={activePage}
           adminOpen={adminOpen}
           displayName={displayName}
           isAdmin={isAdmin}
           isGuest={isGuest}
-          onLiveShift={handleLiveShift}
           onOpenAdmin={handleToggleAdmin}
           onOpenProfile={handleOpenProfile}
-          totalSummary={totalSummary}
         />
 
         <header className="dashboard-topbar">
@@ -2138,7 +2088,6 @@ function Dashboard({ user, onLogout }) {
         <div className="dashboard-page" key={activePage}>
         {activePage === "progress" && (
           <>
-            <MobileHero displayName={displayName} isGuest={isGuest} totalSummary={totalSummary} sites={siteSummaries} />
             <div className={`live-feed-status ${feedConnected ? "is-connected" : ""}`} role="status">
               <span className="live-feed-status__dot" aria-hidden="true" />
               {feedConnected ? (lastUpdate && clockNow - lastUpdate.getTime() > 90000 ? `Connected · No line data since ${lastUpdate.toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" })}` : `Live feed connected${lastUpdate ? ` · Updated ${lastUpdate.toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" })}` : " · Waiting for line data"}`) : "Live feed disconnected · Reconnecting"}
@@ -2215,10 +2164,13 @@ function Dashboard({ user, onLogout }) {
               editingLayout={isAdmin && editingLayout}
               readOnly={isGuest}
             />}
-            <details className="mobile-insights" id="mobile-output">
-              <summary>Shift metrics and trends</summary>
+            <section className="mobile-insights" id="mobile-output" aria-labelledby="mobile-insights-title">
+              <div className="mobile-insights__heading">
+                <p>LIVE PRODUCTION</p>
+                <h2 id="mobile-insights-title">Shift overview</h2>
+              </div>
               <MobileMetricDeck totalSummary={totalSummary} history={telemetryHistory} />
-            </details>
+            </section>
           </>
         )}
         {activePage === "lines" && isAdmin && <LineManagementPage lines={lineConfigs} liveLines={seededLines} busy={adminBusy} error={lineManageError || lineError} onAdd={handleAddLine} onUpdate={handleUpdateLine} onRemove={handleRemoveLine} onReorder={handleReorderLines} />}
