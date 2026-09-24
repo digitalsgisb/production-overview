@@ -21,6 +21,7 @@ const configuredOrigins = (process.env.FRONTEND_ORIGINS || "")
     .filter(Boolean);
 const allowedOrigins = Array.from(new Set([
   "https://productionoverview.sugidigital.org",
+  "https://prod-overview.sugidigital.org",
   "http://localhost:5173",
   "http://127.0.0.1:5173",
   ...configuredOrigins,

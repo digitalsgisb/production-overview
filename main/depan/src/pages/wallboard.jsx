@@ -2,9 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { io } from "socket.io-client";
 import "./wallboard.css";
 
-const DEFAULT_API_URL = `${window.location.protocol}//${window.location.hostname}:3200`;
-const API_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL;
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL || DEFAULT_API_URL;
+const DEFAULT_API_URL = import.meta.env.DEV
+  ? `${window.location.protocol}//${window.location.hostname}:3200`
+  : window.location.origin;
+const API_URL = import.meta.env.DEV
+  ? import.meta.env.VITE_API_URL || DEFAULT_API_URL
+  : window.location.origin;
+const SOCKET_URL = import.meta.env.DEV
+  ? import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL || DEFAULT_API_URL
+  : window.location.origin;
 const SITES = [
   "Port Klang",
   "Sendayan",

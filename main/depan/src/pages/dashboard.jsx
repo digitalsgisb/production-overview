@@ -15,12 +15,15 @@ import { io } from "socket.io-client";
 import LineCard from "./linecard.jsx";
 import "./dashboard.css";
 
-const DEFAULT_API_URL = `${window.location.protocol}//${window.location.hostname}:3200`;
-const SOCKET_URL =
-  import.meta.env.VITE_SOCKET_URL ||
-  import.meta.env.VITE_API_URL ||
-  DEFAULT_API_URL;
-const API_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL;
+const DEFAULT_API_URL = import.meta.env.DEV
+  ? `${window.location.protocol}//${window.location.hostname}:3200`
+  : window.location.origin;
+const SOCKET_URL = import.meta.env.DEV
+  ? import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL || DEFAULT_API_URL
+  : window.location.origin;
+const API_URL = import.meta.env.DEV
+  ? import.meta.env.VITE_API_URL || DEFAULT_API_URL
+  : window.location.origin;
 
 const HISTORY_LIMIT = 28;
 const ADMIN_ROLES = ["Admin", "Supervisor", "Line Leader", "Operator", "Viewer"];

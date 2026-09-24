@@ -1,8 +1,12 @@
 ﻿import { useEffect, useState } from "react";
 import "./login.css";
 
-const DEFAULT_API_URL = `${window.location.protocol}//${window.location.hostname}:3200`;
-const API_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL;
+const DEFAULT_API_URL = import.meta.env.DEV
+  ? `${window.location.protocol}//${window.location.hostname}:3200`
+  : window.location.origin;
+const API_URL = import.meta.env.DEV
+  ? import.meta.env.VITE_API_URL || DEFAULT_API_URL
+  : window.location.origin;
 const LOGIN_URL = `${API_URL}/login`;
 const GUEST_SESSION_URL = `${API_URL}/guest-session`;
 const PUBLIC_SETTINGS_URL = `${API_URL}/settings/public`;
