@@ -57,14 +57,15 @@ function createLineRegistry({ pool, hasDatabaseConfig }) {
                         deleted BOOLEAN NOT NULL DEFAULT FALSE,
                         card_size VARCHAR(12) NOT NULL DEFAULT 'standard',
                         sort_order INTEGER NOT NULL DEFAULT 0,
-                        operational_state VARCHAR(16) NOT NULL DEFAULT 'active',
+                        operational_state VARCHAR(24) NOT NULL DEFAULT 'active',
                         state_note VARCHAR(240) NOT NULL DEFAULT ''
                     )
                 `);
                 await pool.query('ALTER TABLE production_overview_lines ADD COLUMN IF NOT EXISTS deleted BOOLEAN NOT NULL DEFAULT FALSE');
                 await pool.query("ALTER TABLE production_overview_lines ADD COLUMN IF NOT EXISTS card_size VARCHAR(12) NOT NULL DEFAULT 'standard'");
                 await pool.query('ALTER TABLE production_overview_lines ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0');
-                await pool.query("ALTER TABLE production_overview_lines ADD COLUMN IF NOT EXISTS operational_state VARCHAR(16) NOT NULL DEFAULT 'active'");
+                await pool.query("ALTER TABLE production_overview_lines ADD COLUMN IF NOT EXISTS operational_state VARCHAR(24) NOT NULL DEFAULT 'active'");
+                await pool.query("ALTER TABLE production_overview_lines ALTER COLUMN operational_state TYPE VARCHAR(24)");
                 await pool.query("ALTER TABLE production_overview_lines ADD COLUMN IF NOT EXISTS state_note VARCHAR(240) NOT NULL DEFAULT ''");
                 await pool.query("UPDATE production_overview_lines SET operational_state = 'out_of_commission' WHERE operational_state = 'commissioning'");
                 for (const [index, line] of DEFAULT_LINES.entries()) {

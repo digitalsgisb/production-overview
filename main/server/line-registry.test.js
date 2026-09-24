@@ -17,14 +17,20 @@ test('new line details are validated before registration', () => {
 });
 
 test('admin line state persists across a registry reload', async () => {
+    let stateColumnLimit = 16;
     const rows = new Map(DEFAULT_LINES.map((line, index) => [line.lineId, {
         line_id: line.lineId, display_name: line.name, site: line.site, dashboard_url: line.dashboardUrl || '',
         card_size: 'standard', operational_state: ['ABB4', 'ABB7'].includes(line.lineId) ? 'commissioning' : 'active', state_note: line.lineId === 'ABB4' ? 'Trial run' : '', sort_order: index, deleted: false,
     }]));
     const pool = {
         async query(sql, params = []) {
+            if (sql.includes('ALTER COLUMN operational_state TYPE VARCHAR(24)')) {
+                stateColumnLimit = 24;
+                return { rows: [] };
+            }
             if (sql.includes('CREATE TABLE') || sql.includes('ALTER TABLE')) return { rows: [] };
             if (sql.includes("SET operational_state = 'out_of_commission'")) {
+                if ('out_of_commission'.length > stateColumnLimit) throw new Error('value too long for type character varying(16)');
                 for (const row of rows.values()) if (row.operational_state === 'commissioning') row.operational_state = 'out_of_commission';
                 return { rows: [] };
             }
