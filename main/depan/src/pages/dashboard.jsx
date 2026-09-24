@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -75,7 +75,7 @@ async function loadPublicSettings() {
   return data;
 }
 
-function Sidebar({ activePage, isGuest, onSelectPage, onMenu, onLogout, isMobileNavOpen, onCloseMobileNav, sites = [], user }) {
+function Sidebar({ activePage, adminOpen, isAdmin, isGuest, onSelectPage, onManageAccounts, onMenu, onLogout, isMobileNavOpen, onCloseMobileNav, sites = [], user }) {
   function handleSelectPage(page) {
     onSelectPage(page);
     onCloseMobileNav();
@@ -133,6 +133,11 @@ function Sidebar({ activePage, isGuest, onSelectPage, onMenu, onLogout, isMobile
           <span className="icon-btn__tip">Progress</span>
         </button>
 
+        {isAdmin && <button className={`icon-btn nav-btn ${activePage === "lines" ? "is-active" : ""}`} type="button" aria-label="Manage production lines" aria-pressed={activePage === "lines"} onClick={() => handleSelectPage("lines")}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="9" width="5" height="11" rx="1" /><rect x="10" y="4" width="5" height="16" rx="1" /><rect x="17" y="12" width="4" height="8" rx="1" /></svg>
+          <span className="icon-btn__tip">Lines</span>
+        </button>}
+
         {isGuest && (
           <>
             <button
@@ -172,6 +177,8 @@ function Sidebar({ activePage, isGuest, onSelectPage, onMenu, onLogout, isMobile
             <span className="icon-btn__tip">{page}</span>
           </button>
         ))}
+
+        {isAdmin && <button className={`icon-btn nav-btn sidebar-admin-link ${adminOpen ? "is-active" : ""}`} type="button" aria-label="Manage accounts and access" aria-pressed={adminOpen} onClick={onManageAccounts}><PersonIcon /><span className="icon-btn__tip">Accounts</span></button>}
 
       </nav>
 
@@ -756,7 +763,7 @@ function UsernameControl({ user, busy, onUpdate }) {
   </form>;
 }
 
-function LineSettings({ line, busy, onUpdate }) {
+function LineSettings({ line, busy, onUpdate, onRemove }) {
   const [draft, setDraft] = useState(line);
   return <form className="admin-line-settings" onSubmit={(event) => { event.preventDefault(); onUpdate(line.lineId, draft); }}>
     <strong>{line.lineId}</strong>
@@ -765,8 +772,59 @@ function LineSettings({ line, busy, onUpdate }) {
       {ADMIN_SITES.map((site) => <option key={site}>{site}</option>)}
     </select></label>
     <label>Dashboard URL (optional)<input type="url" value={draft.dashboardUrl || ""} onChange={(event) => setDraft((current) => ({ ...current, dashboardUrl: event.target.value }))} /></label>
-    <button type="submit" disabled={busy}>Save line</button>
+    <label>Card size<select value={draft.cardSize || "standard"} onChange={(event) => setDraft((current) => ({ ...current, cardSize: event.target.value }))}>
+      <option value="compact">Compact</option><option value="standard">Standard</option><option value="wide">Wide</option>
+    </select></label>
+    <div className="line-settings-actions"><button type="submit" disabled={busy}>Save changes</button><button type="button" className="line-delete-btn" disabled={busy} onClick={() => onRemove(line)}>Delete line</button></div>
   </form>;
+}
+
+function LineManagementPage({ lines, liveLines, busy, error, onAdd, onUpdate, onRemove, onReorder }) {
+  const [draft, setDraft] = useState({ lineId: "", name: "", site: ADMIN_SITES[0], dashboardUrl: "", cardSize: "standard" });
+  async function submit(event) {
+    event.preventDefault();
+    if (await onAdd(draft)) setDraft({ lineId: "", name: "", site: ADMIN_SITES[0], dashboardUrl: "", cardSize: "standard" });
+  }
+  function dropLine(event, site, targetId) {
+    event.preventDefault();
+    const sourceId = event.dataTransfer.getData("text/plain");
+    const siteLines = lines.filter((line) => line.site === site).map((line) => line.lineId);
+    if (!siteLines.includes(sourceId) || sourceId === targetId) return;
+    siteLines.splice(siteLines.indexOf(sourceId), 1);
+    siteLines.splice(siteLines.indexOf(targetId), 0, sourceId);
+    onReorder(site, siteLines);
+  }
+  return <section className="line-management-page">
+    <div className="line-management-intro"><p className="dashboard-eyebrow">Dashboard management</p><h1>Production lines</h1><p>Add, edit, arrange, resize, or remove a line. All viewers receive saved changes live.</p></div>
+    {error && <div className="admin-message" role="alert">{error}</div>}
+    <form className="line-create-panel admin-line-settings" onSubmit={submit}>
+      <h2>Add a production line</h2>
+      <p>Use the same line ID in Node-RED. The shared <code>x-api-key</code> stays in the server settings.</p>
+      <div className="line-create-fields">
+        <label>Line ID<input value={draft.lineId} onChange={(event) => setDraft((current) => ({ ...current, lineId: event.target.value.toUpperCase() }))} required maxLength="24" pattern="[A-Z0-9][A-Z0-9_-]{1,23}" placeholder="ABB8" /></label>
+        <label>Name<input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} required maxLength="80" placeholder="Assembly 8" /></label>
+        <label>Site<select value={draft.site} onChange={(event) => setDraft((current) => ({ ...current, site: event.target.value }))}>{ADMIN_SITES.map((site) => <option key={site}>{site}</option>)}</select></label>
+        <label>Card size<select value={draft.cardSize} onChange={(event) => setDraft((current) => ({ ...current, cardSize: event.target.value }))}><option value="compact">Compact</option><option value="standard">Standard</option><option value="wide">Wide</option></select></label>
+        <label>Dashboard URL (optional)<input type="url" value={draft.dashboardUrl} onChange={(event) => setDraft((current) => ({ ...current, dashboardUrl: event.target.value }))} placeholder="https://" /></label>
+      </div>
+      <button type="submit" disabled={busy}>{busy ? "Saving..." : "Add line"}</button>
+    </form>
+    {ADMIN_SITES.map((site) => {
+      const siteLines = lines.filter((line) => line.site === site);
+      return <section className="line-management-site" key={site}>
+        <div className="line-management-site__head"><h2>{site}</h2><span>{siteLines.length} lines</span></div>
+        <p className="line-management-hint">Drag cards to change their dashboard order. Open a card to edit its details or size.</p>
+        <div className="line-management-list">{siteLines.map((line, index) => {
+          const status = getStatusConfig(getLineValue(liveLines[line.lineId], ["machine_mode", "mode", "status"], "offline"));
+          return <details className="line-management-row" key={line.lineId} draggable={!busy} onDragStart={(event) => event.dataTransfer.setData("text/plain", line.lineId)} onDragOver={(event) => event.preventDefault()} onDrop={(event) => dropLine(event, site, line.lineId)}>
+            <summary><span className="line-drag-handle" aria-hidden="true">⋮⋮</span><span className="line-management-row__identity"><strong>{line.name}</strong><small>{line.lineId} · {line.cardSize || "standard"} card</small></span><span className="line-management-row__status" style={{ color: status.bg }}>{status.label}</span><span className="line-management-row__arrows"><button type="button" disabled={busy || index === 0} aria-label={`Move ${line.name} up`} onClick={(event) => { event.preventDefault(); const next = [...siteLines.map((item) => item.lineId)]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; onReorder(site, next); }}>↑</button><button type="button" disabled={busy || index === siteLines.length - 1} aria-label={`Move ${line.name} down`} onClick={(event) => { event.preventDefault(); const next = [...siteLines.map((item) => item.lineId)]; [next[index + 1], next[index]] = [next[index], next[index + 1]]; onReorder(site, next); }}>↓</button></span></summary>
+            <LineSettings key={`${line.lineId}:${line.name}:${line.site}:${line.dashboardUrl}:${line.cardSize}`} line={line} busy={busy} onUpdate={onUpdate} onRemove={onRemove} />
+          </details>;
+        })}</div>
+        {siteLines.length === 0 && <p className="line-management-empty">No lines at this site yet.</p>}
+      </section>;
+    })}
+  </section>;
 }
 
 function AdminControlDrawer({
@@ -776,13 +834,10 @@ function AdminControlDrawer({
   guestAccessEnabled,
   isOpen,
   onAddUser,
-  onAddLine,
   onClose,
   onRemoveUser,
   onToggleGuestAccess,
   onUpdateUser,
-  onUpdateLine,
-  lines,
   users,
 }) {
   const [query, setQuery] = useState("");
@@ -793,7 +848,6 @@ function AdminControlDrawer({
     role: "Viewer",
     sites: [ADMIN_SITES[0]],
   });
-  const [draftLine, setDraftLine] = useState({ lineId: "", name: "", site: ADMIN_SITES[0], dashboardUrl: "" });
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -887,11 +941,6 @@ function AdminControlDrawer({
     setQuery("");
   }
 
-  async function handleAddLine(event) {
-    event.preventDefault();
-    const created = await onAddLine(draftLine);
-    if (created) setDraftLine({ lineId: "", name: "", site: ADMIN_SITES[0], dashboardUrl: "" });
-  }
 
   return (
     <>
@@ -911,7 +960,7 @@ function AdminControlDrawer({
         <header className="admin-drawer__header">
           <div>
             <p>System users</p>
-            <h2 id="admin-control-title">Manage system</h2>
+            <h2 id="admin-control-title">Accounts &amp; access</h2>
           </div>
           <button className="admin-drawer__close" type="button" aria-label="Close admin control" onClick={onClose}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -949,21 +998,6 @@ function AdminControlDrawer({
             {guestAccessEnabled ? "Disable Guest" : "Enable Guest"}
           </button>
         </section>
-
-        <details className="admin-line-management">
-          <summary>Production lines · {lines.length}</summary>
-          <p>Register a line here, then send its line ID from Node-RED using the shared <code>x-api-key</code> from the server configuration.</p>
-          <form className="admin-line-settings" onSubmit={handleAddLine}>
-            <label>Line ID<input value={draftLine.lineId} onChange={(event) => setDraftLine((current) => ({ ...current, lineId: event.target.value.toUpperCase() }))} required maxLength="24" pattern="[A-Z0-9][A-Z0-9_-]{1,23}" placeholder="ABB8" /></label>
-            <label>Name<input value={draftLine.name} onChange={(event) => setDraftLine((current) => ({ ...current, name: event.target.value }))} required maxLength="80" placeholder="Assembly 8" /></label>
-            <label>Site<select value={draftLine.site} onChange={(event) => setDraftLine((current) => ({ ...current, site: event.target.value }))}>
-              {ADMIN_SITES.map((site) => <option key={site}>{site}</option>)}
-            </select></label>
-            <label>Dashboard URL (optional)<input type="url" value={draftLine.dashboardUrl} onChange={(event) => setDraftLine((current) => ({ ...current, dashboardUrl: event.target.value }))} /></label>
-            <button type="submit" disabled={busy}>Add line</button>
-          </form>
-          <div className="admin-line-list">{lines.map((line) => <LineSettings key={`${line.lineId}:${line.name}:${line.site}:${line.dashboardUrl}`} line={line} busy={busy} onUpdate={onUpdateLine} />)}</div>
-        </details>
 
         <label className="admin-search" htmlFor="admin-user-search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1142,7 +1176,7 @@ function createFallbackLine(lineId) {
   };
 }
 
-function ProductionSection({ id, title, lineIds, lines, configs, onSelectLine, readOnly = false }) {
+function ProductionSection({ id, title, lineIds, lines, configs, onSelectLine, onReorder, onResize, editingLayout = false, readOnly = false }) {
   const sectionLines = lineIds.map((lineId) => lines[lineId] ?? createFallbackLine(lineId));
   const runningCount = sectionLines.filter((line) => {
     const status = String(getLineValue(line, ["machine_mode", "mode", "status"], "offline"))
@@ -1169,16 +1203,29 @@ function ProductionSection({ id, title, lineIds, lines, configs, onSelectLine, r
         </div>
       </div>
       <div className="line-grid">
-        {lineIds.map((lineId) => (
+        {lineIds.map((lineId) => {
+          const config = configs.find((item) => item.lineId === lineId);
+          return <div className={`line-grid-item line-grid-item--${config?.cardSize || "standard"} ${editingLayout ? "is-editing" : ""}`} key={lineId} draggable={editingLayout}
+            onDragStart={(event) => event.dataTransfer.setData("text/plain", lineId)}
+            onDragOver={(event) => { if (editingLayout) event.preventDefault(); }}
+            onDrop={(event) => { if (!editingLayout) return; event.preventDefault(); const sourceId = event.dataTransfer.getData("text/plain"); if (!lineIds.includes(sourceId) || sourceId === lineId) return; const next = [...lineIds]; next.splice(next.indexOf(sourceId), 1); next.splice(next.indexOf(lineId), 0, sourceId); onReorder(title, next); }}>
+          {editingLayout && <div className="line-layout-controls">
+            <span aria-label={`Drag ${lineId} to reorder`}>⋮⋮ Drag to arrange</span>
+            <label>Size <select value={config?.cardSize || "standard"} onChange={(event) => onResize(lineId, { cardSize: event.target.value })}><option value="compact">Compact</option><option value="standard">Standard</option><option value="wide">Wide</option></select></label>
+            <button type="button" className="line-resize-handle" draggable="false" title="Drag left for compact or right for wide" aria-label={`Drag horizontally to resize ${lineId}`} onDragStart={(event) => event.preventDefault()}
+              onPointerDown={(event) => { event.currentTarget.dataset.startX = String(event.clientX); event.currentTarget.setPointerCapture(event.pointerId); }}
+              onPointerUp={(event) => { const startX = Number(event.currentTarget.dataset.startX); const delta = event.clientX - startX; if (Math.abs(delta) >= 35) onResize(lineId, { cardSize: delta > 0 ? "wide" : "compact" }); event.currentTarget.releasePointerCapture(event.pointerId); }}>↔ Resize</button>
+          </div>}
           <LineCard
             key={lineId}
             lineId={lineId}
-            displayName={configs.find((config) => config.lineId === lineId)?.name}
+            displayName={config?.name}
             line={lines[lineId] ?? createFallbackLine(lineId)}
             onSelectLine={onSelectLine}
             readOnly={readOnly}
           />
-        ))}
+          </div>;
+        })}
       </div>
     </section>
   );
@@ -1477,7 +1524,7 @@ function MobileHeader({ activePage, adminOpen, displayName, isAdmin, isGuest, on
         <button
           className={`mobile-header__icon ${adminOpen ? "is-active" : ""}`}
           type="button"
-          aria-label="Manage system"
+          aria-label="Manage accounts and access"
           aria-pressed={adminOpen}
           onClick={onOpenAdmin}
         >
@@ -1623,7 +1670,8 @@ function Dashboard({ user, onLogout }) {
   const [lineError, setLineError] = useState("");
   const refreshLineConfigs = useCallback(async () => {
     const data = await authenticatedRequest("/lines");
-    setLineConfigs(data.lines || []);
+    const nextLines = data.lines || [];
+    setLineConfigs((current) => JSON.stringify(current) === JSON.stringify(nextLines) ? current : nextLines);
     setLineError("");
   }, []);
   const visibleSites = useMemo(() => (isAdmin || isGuest ? ADMIN_SITES : normalizeAdminSites(user?.sites)), [isAdmin, isGuest, user?.sites]);
@@ -1632,12 +1680,15 @@ function Dashboard({ user, onLogout }) {
   const [lines, setLines] = useState({});
   const [feedConnected, setFeedConnected] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [clockNow, setClockNow] = useState(0);
   const [activePage, setActivePage] = useState("progress");
+  const [editingLayout, setEditingLayout] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [adminUsers, setAdminUsers] = useState([]);
   const [adminBusy, setAdminBusy] = useState(isAdmin);
   const [adminError, setAdminError] = useState("");
+  const [lineManageError, setLineManageError] = useState("");
   const [guestAccessEnabled, setGuestAccessEnabled] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [selectedLineId, setSelectedLineId] = useState(null);
@@ -1647,6 +1698,19 @@ function Dashboard({ user, onLogout }) {
     const timer = window.setTimeout(() => refreshLineConfigs().catch((error) => setLineError(error.message)), 0);
     return () => window.clearTimeout(timer);
   }, [refreshLineConfigs]);
+
+  useEffect(() => {
+    const refresh = () => refreshLineConfigs().catch((error) => setLineError(error.message));
+    const interval = window.setInterval(refresh, 30000);
+    const onVisible = () => { if (document.visibilityState === "visible") refresh(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { window.clearInterval(interval); document.removeEventListener("visibilitychange", onVisible); };
+  }, [refreshLineConfigs]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setClockNow(Date.now()), 15000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const seededLines = useMemo(() => {
     return visibleLineIds.reduce((acc, lineId) => {
@@ -1763,6 +1827,7 @@ function Dashboard({ user, onLogout }) {
 
     socket.on("connect", () => {
       setFeedConnected(true);
+      refreshLineConfigs().catch((error) => setLineError(error.message));
       visibleLineIds.forEach((lineId) => socket.emit("join-line", lineId));
     });
     socket.on("lines:changed", () => refreshLineConfigs().catch((error) => setLineError(error.message)));
@@ -1843,13 +1908,13 @@ function Dashboard({ user, onLogout }) {
 
   async function handleAddLine(line) {
     setAdminBusy(true);
-    setAdminError("");
+    setLineManageError("");
     try {
       await authenticatedRequest("/admin/lines", { method: "POST", body: JSON.stringify(line) });
       await refreshLineConfigs();
       return true;
     } catch (error) {
-      setAdminError(error.message);
+      setLineManageError(error.message);
       return false;
     } finally {
       setAdminBusy(false);
@@ -1858,12 +1923,41 @@ function Dashboard({ user, onLogout }) {
 
   async function handleUpdateLine(lineId, line) {
     setAdminBusy(true);
-    setAdminError("");
+    setLineManageError("");
     try {
       await authenticatedRequest(`/admin/lines/${encodeURIComponent(lineId)}`, { method: "PATCH", body: JSON.stringify(line) });
       await refreshLineConfigs();
     } catch (error) {
-      setAdminError(error.message);
+      setLineManageError(error.message);
+    } finally {
+      setAdminBusy(false);
+    }
+  }
+
+  async function handleRemoveLine(line) {
+    if (!window.confirm(`Delete ${line.name} (${line.lineId}) from the live dashboard? Node-RED updates for this ID will be rejected until you add it again. Historical records remain in PostgreSQL.`)) return;
+    setAdminBusy(true);
+    setLineManageError("");
+    try {
+      await authenticatedRequest(`/admin/lines/${encodeURIComponent(line.lineId)}`, { method: "DELETE" });
+      await refreshLineConfigs();
+      setLines((current) => { const next = { ...current }; delete next[line.lineId]; return next; });
+      if (selectedLineId === line.lineId) setSelectedLineId(null);
+    } catch (error) {
+      setLineManageError(error.message);
+    } finally {
+      setAdminBusy(false);
+    }
+  }
+
+  async function handleReorderLines(site, lineIds) {
+    setAdminBusy(true);
+    setLineManageError("");
+    try {
+      await authenticatedRequest("/admin/lines/order", { method: "PATCH", body: JSON.stringify({ site, lineIds }) });
+      await refreshLineConfigs();
+    } catch (error) {
+      setLineManageError(error.message);
     } finally {
       setAdminBusy(false);
     }
@@ -1946,9 +2040,12 @@ function Dashboard({ user, onLogout }) {
     <div className="app-shell">
       <Sidebar
         activePage={activePage}
+        adminOpen={adminOpen}
+        isAdmin={isAdmin}
         isGuest={isGuest}
         onSelectPage={setActivePage}
         onMenu={handleMenu}
+        onManageAccounts={handleToggleAdmin}
         onLogout={handleLogout}
         isMobileNavOpen={mobileNavOpen}
         onCloseMobileNav={() => setMobileNavOpen(false)}
@@ -1972,13 +2069,10 @@ function Dashboard({ user, onLogout }) {
           guestAccessEnabled={guestAccessEnabled}
           isOpen={adminOpen}
           onAddUser={handleAddAdminUser}
-          onAddLine={handleAddLine}
           onClose={() => setAdminOpen(false)}
           onRemoveUser={handleRemoveAdminUser}
           onToggleGuestAccess={handleToggleGuestAccess}
           onUpdateUser={handleUpdateAdminUser}
-          onUpdateLine={handleUpdateLine}
-          lines={lineConfigs}
           users={adminUsers}
         />
       )}
@@ -2004,28 +2098,11 @@ function Dashboard({ user, onLogout }) {
         />
 
         <header className="dashboard-topbar">
-          <button
-            className="user-chip"
-            type="button"
-            aria-label={isGuest ? "Guest view-only access" : "Open profile summary"}
-            disabled={isGuest}
-            onClick={handleOpenProfile}
-          >
-            <span className="user-chip__avatar"><PersonIcon /></span>
-            <span className="user-chip__text">
-              <span>{displayName}</span>
-              <small>{isGuest ? "View only" : "Control room"}</small>
-            </span>
-          </button>
-          <button
-            className={`live-shift-btn ${activePage === "progress" ? "is-active" : ""}`}
-            type="button"
-            aria-pressed={activePage === "progress"}
-            onClick={handleLiveShift}
-          >
-            Live Shift
-          </button>
+          <div className="topbar-breadcrumb"><span>Operations</span><span aria-hidden="true">›</span><strong>{activePage === "progress" ? "Live progress" : activePage === "lines" ? "Production lines" : activePage[0].toUpperCase() + activePage.slice(1)}</strong></div>
           <div className="topbar-actions">
+            <span className="topbar-site">{visibleSites.join(" · ")}</span>
+            <time className="topbar-date" dateTime={new Date().toISOString().slice(0, 10)}>{new Date().toLocaleDateString("en-MY", { weekday: "short", day: "numeric", month: "short" })}</time>
+            <button className="user-chip" type="button" aria-label={isGuest ? "Guest view-only access" : "Open profile summary"} disabled={isGuest} onClick={handleOpenProfile}><span className="user-chip__avatar"><PersonIcon /></span><span className="user-chip__text"><span>{displayName}</span><small>{isGuest ? "View only" : "Control room"}</small></span></button>
             <button
               className="wallboard-launch"
               type="button"
@@ -2043,13 +2120,14 @@ function Dashboard({ user, onLogout }) {
               <button
                 className={adminOpen ? "is-active" : ""}
                 type="button"
-                aria-label="Manage system"
+                aria-label="Manage accounts and access"
                 aria-pressed={adminOpen}
                 onClick={handleToggleAdmin}
               >
                 <PersonIcon />
               </button>
             )}
+            <button className="topbar-signout" type="button" onClick={handleLogout}>Sign out</button>
           </div>
         </header>
 
@@ -2058,7 +2136,7 @@ function Dashboard({ user, onLogout }) {
             <MobileHero displayName={displayName} isGuest={isGuest} totalSummary={totalSummary} sites={siteSummaries} />
             <div className={`live-feed-status ${feedConnected ? "is-connected" : ""}`} role="status">
               <span className="live-feed-status__dot" aria-hidden="true" />
-              {feedConnected ? `Live feed connected${lastUpdate ? ` · Updated ${lastUpdate.toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" })}` : " · Waiting for line data"}` : "Live feed disconnected · Reconnecting"}
+              {feedConnected ? (lastUpdate && clockNow - lastUpdate.getTime() > 90000 ? `Connected · No line data since ${lastUpdate.toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" })}` : `Live feed connected${lastUpdate ? ` · Updated ${lastUpdate.toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" })}` : " · Waiting for line data"}`) : "Live feed disconnected · Reconnecting"}
             </div>
             {lineError && <div className="admin-message" role="alert">Production lines could not load: {lineError}</div>}
 
@@ -2067,6 +2145,7 @@ function Dashboard({ user, onLogout }) {
                 <p className="dashboard-eyebrow">Live OEE timeline</p>
                 <h1>Production Line Overview</h1>
               </div>
+              {isAdmin && <div className="dashboard-layout-actions"><button type="button" onClick={() => setEditingLayout((current) => !current)}>{editingLayout ? "Done arranging" : "Arrange dashboard"}</button><button type="button" onClick={() => setActivePage("lines")}>Manage lines</button></div>}
             </section>
 
             {!isGuest && (
@@ -2114,6 +2193,9 @@ function Dashboard({ user, onLogout }) {
               lines={seededLines}
               configs={lineConfigs}
               onSelectLine={setSelectedLineId}
+              onReorder={handleReorderLines}
+              onResize={handleUpdateLine}
+              editingLayout={isAdmin && editingLayout}
               readOnly={isGuest}
             />}
             {visibleSites.includes("Sendayan") && <ProductionSection
@@ -2123,6 +2205,9 @@ function Dashboard({ user, onLogout }) {
               lines={seededLines}
               configs={lineConfigs}
               onSelectLine={setSelectedLineId}
+              onReorder={handleReorderLines}
+              onResize={handleUpdateLine}
+              editingLayout={isAdmin && editingLayout}
               readOnly={isGuest}
             />}
             <details className="mobile-insights" id="mobile-output">
@@ -2131,6 +2216,7 @@ function Dashboard({ user, onLogout }) {
             </details>
           </>
         )}
+        {activePage === "lines" && isAdmin && <LineManagementPage lines={lineConfigs} liveLines={seededLines} busy={adminBusy} error={lineManageError || lineError} onAdd={handleAddLine} onUpdate={handleUpdateLine} onRemove={handleRemoveLine} onReorder={handleReorderLines} />}
         {activePage === "attendance" && <PlaceholderPage title="Attendance" />}
         {activePage === "history" && <PlaceholderPage title="History" />}
 

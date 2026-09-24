@@ -1,6 +1,6 @@
 # Production Overview
 
-Live mobile and desktop monitoring for Port Klang and Sendayan. Node-RED sends line events to the API; browsers receive updates over Socket.IO. Admins can register new lines under **Manage system → Production lines**. Attendance and History are still placeholders.
+Live mobile and desktop monitoring for Port Klang and Sendayan. Node-RED sends line events to the API; browsers receive updates over Socket.IO. Admins manage lines from the **Lines** page beside **Progress**. Attendance and History are still placeholders.
 
 ## Docker migration: Raspberry Pi to AI PC
 
@@ -50,7 +50,7 @@ chmod 600 main/server/.env
 nano main/server/.env
 ```
 
-Keep `API_KEY` equal to the key Node-RED sends in `x-api-key`. Keep or replace `JWT_SECRET` with a long random value. Set `DB_HOST=db`, `DB_PORT=5432`, and keep the database name, user, and password you intend to restore. Set `PORT=3200`. If `ENABLE_LOCAL_ADMIN=true`, its login is `LOCAL_ADMIN_USERNAME` or the part before `@` in `LOCAL_ADMIN_EMAIL`, and its password is the `LOCAL_ADMIN_PASSWORD` value in this private file. There is no universal admin password; database account passwords remain the same after restoring the database. Change any example or weak local admin password before starting the AI PC. The app's `.env` is ignored by Git and excluded from the Docker image. Do not create a frontend `.env` with a Pi address or `localhost` for this build.
+Keep `API_KEY` equal to the key Node-RED sends in `x-api-key`. Keep or replace `JWT_SECRET` with a long random value. Set `DB_HOST=db`, `DB_PORT=5432`, and keep the database name, user, and password you intend to restore. Set `PORT=3200`. Add every browser address you will use to the comma-separated `FRONTEND_ORIGINS`, including the AI PC address with port 3200, for example `FRONTEND_ORIGINS=http://100.109.37.96:3200,http://192.168.1.50:3200`. Match the address shown in your browser exactly, without a trailing slash. If `ENABLE_LOCAL_ADMIN=true`, its login is `LOCAL_ADMIN_USERNAME` or the part before `@` in `LOCAL_ADMIN_EMAIL`, and its password is the `LOCAL_ADMIN_PASSWORD` value in this private file. There is no universal admin password; database account passwords remain the same after restoring the database. Change any example or weak local admin password before starting the AI PC. The app's `.env` is ignored by Git and excluded from the Docker image. Do not create a frontend `.env` with a Pi address or `localhost` for this build.
 
 Check the Compose files and build the app image without starting it:
 
@@ -101,7 +101,7 @@ Choose a short maintenance window, ideally after `/endShift`. The app keeps curr
 
    The app creates the username column and production line registry on first use. Confirm the database restore completed without errors before starting the app. If `pg_restore` fails, fix the cause and restore to a fresh empty database; do not proceed with a partial restore.
 
-6. Open `http://<ai-pc-ip>:3200` on a phone and desktop. Sign in with a username. Existing database accounts receive usernames from their old email prefixes; duplicate prefixes get numeric suffixes. Admins can change usernames in **Manage system**. Open `http://<ai-pc-ip>:3200/wallboard` as well. Confirm the sites, registered lines, and account list are present.
+6. Open `http://<ai-pc-ip>:3200` on a phone and desktop. Sign in with a username. Existing database accounts receive usernames from their old email prefixes; duplicate prefixes get numeric suffixes. Admins can change usernames in **Accounts & access**. Open `http://<ai-pc-ip>:3200/wallboard` as well. Confirm the sites, registered lines, and account list are present.
 7. In each Node-RED HTTP Request node, replace the Pi API URL with `http://<ai-pc-ip>:3200/<same-endpoint>`. Keep the existing shared `x-api-key`. Resume the flows. Start a new line session before sending counts, then confirm live updates on the phone. The endpoints and payloads stay the same, including `/start-session-`, `/update_product_count`, `/machine_mode`, `/setupModel`, `/update_reject`, `/downtime_log`, and `/endShift`.
 8. When one complete start, update, and end sequence works, retire the old **application** services on the Pi:
 
@@ -123,7 +123,9 @@ docker compose --env-file main/server/.env -f compose.yaml -f compose.db.yaml lo
 docker compose --env-file main/server/.env -f compose.yaml -f compose.db.yaml logs --tail=100 db
 ```
 
-A healthy `/healthz` response shows that the app process is running; also sign in and check live line changes to verify the database and Node-RED path. A newly registered line appears on mobile and wallboard after an Admin adds its ID, name, site, and optional dashboard URL. Node-RED must then send that exact ID with the same shared API key. An unknown line ID returns HTTP 404.
+A healthy `/healthz` response shows that the app process is running; also sign in and check live line changes to verify the database and Node-RED path. A newly registered line appears on mobile and wallboard after an Admin adds its ID, name, site, and optional dashboard URL in **Lines**. Node-RED must then send that exact ID with the same shared API key. An unknown line ID returns HTTP 404.
+
+Admins can drag line cards on **Progress** to set their order, drag the resize control left or right, or choose Compact, Standard, or Wide. The **Lines** page also offers add, edit, reorder, size, and delete controls. These settings are saved in PostgreSQL and broadcast to connected viewers. Deleting a line removes it from the live dashboard and rejects new Node-RED events for that ID; it does not erase historical production records. You can add the same ID again later. Back up PostgreSQL before making large layout or line changes.
 
 Back up the Docker database regularly. This example writes a custom archive to the Git-ignored `backups/` directory:
 

@@ -223,6 +223,15 @@ app.post('/admin/lines', auth.requireAdmin, async (req, res) => {
         return res.status(/exists|Line ID|Line name|Choose|dashboard URL|Dashboard URL/.test(error.message) ? 400 : 500).json({ message: error.message });
     }
 });
+app.patch('/admin/lines/order', auth.requireAdmin, async (req, res) => {
+    try {
+        const lines = await lineRegistry.reorder(req.body?.site, req.body?.lineIds);
+        io.emit('lines:changed');
+        return res.json({ lines });
+    } catch (error) {
+        return res.status(/Choose|Order must/.test(error.message) ? 400 : 500).json({ message: error.message });
+    }
+});
 app.patch('/admin/lines/:lineId', auth.requireAdmin, async (req, res) => {
     try {
         const line = await lineRegistry.update(req.params.lineId, req.body);
@@ -233,6 +242,17 @@ app.patch('/admin/lines/:lineId', auth.requireAdmin, async (req, res) => {
         return res.json({ line });
     } catch (error) {
         return res.status(error.message === 'Unknown line ID.' ? 404 : 400).json({ message: error.message });
+    }
+});
+app.delete('/admin/lines/:lineId', auth.requireAdmin, async (req, res) => {
+    try {
+        const lineId = req.params.lineId;
+        await lineRegistry.remove(lineId);
+        for (const socket of io.sockets.sockets.values()) socket.leave(lineId);
+        io.emit('lines:changed');
+        return res.status(204).end();
+    } catch (error) {
+        return res.status(error.message === 'Unknown line ID.' ? 404 : 500).json({ message: error.message });
     }
 });
 

@@ -109,12 +109,20 @@ function Wallboard({ user, onLogout }) {
     const response = await fetch(`${API_URL}/lines`, { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } });
     if (!response.ok) throw new Error("Unable to load production lines.");
     const data = await response.json();
-    setLineConfigs(data.lines || []);
+    const nextLines = data.lines || [];
+    setLineConfigs((current) => JSON.stringify(current) === JSON.stringify(nextLines) ? current : nextLines);
     setLineError("");
   }, []);
   useEffect(() => {
     const timer = window.setTimeout(() => refreshLines().catch((error) => setLineError(error.message)), 0);
     return () => window.clearTimeout(timer);
+  }, [refreshLines]);
+  useEffect(() => {
+    const refresh = () => refreshLines().catch((error) => setLineError(error.message));
+    const interval = window.setInterval(refresh, 30000);
+    const onVisible = () => { if (document.visibilityState === "visible") refresh(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { window.clearInterval(interval); document.removeEventListener("visibilitychange", onVisible); };
   }, [refreshLines]);
   const visibleSites = useMemo(() => SITES
     .filter((site) => user?.role === "Admin" || user?.role === "Guest" || user?.sites?.includes(site))
@@ -134,7 +142,7 @@ function Wallboard({ user, onLogout }) {
   }, []);
   useEffect(() => {
     const socket = io(SOCKET_URL, { auth: { token: localStorage.getItem("token") } });
-    socket.on("connect", () => { setConnected(true); visibleLineIds.forEach((lineId) => socket.emit("join-line", lineId)); });
+    socket.on("connect", () => { setConnected(true); refreshLines().catch((error) => setLineError(error.message)); visibleLineIds.forEach((lineId) => socket.emit("join-line", lineId)); });
     socket.on("lines:changed", () => refreshLines().catch((error) => setLineError(error.message)));
     socket.on("disconnect", () => setConnected(false));
     socket.on("line:data", (data) => { setLines((current) => ({ ...current, [data.line_id]: data.line })); setLastUpdated(new Date()); });
