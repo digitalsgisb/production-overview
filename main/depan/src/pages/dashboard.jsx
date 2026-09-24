@@ -75,7 +75,7 @@ async function loadPublicSettings() {
   return data;
 }
 
-function Sidebar({ activePage, adminOpen, isAdmin, isGuest, onSelectPage, onManageAccounts, onMenu, onLogout, isMobileNavOpen, onCloseMobileNav, sites = [], user }) {
+function Sidebar({ activePage, adminOpen, isAdmin, isGuest, onSelectPage, onManageAccounts, onLogout, isMobileNavOpen, onCloseMobileNav, sites = [] }) {
   function handleSelectPage(page) {
     onSelectPage(page);
     onCloseMobileNav();
@@ -89,33 +89,16 @@ function Sidebar({ activePage, adminOpen, isAdmin, isGuest, onSelectPage, onMana
     });
   }
 
-  const displayName = user?.name || user?.username || "User";
-
   return (
     <aside className={`sidebar ${isMobileNavOpen ? "is-mobile-open" : ""}`} aria-label="Main navigation">
       <div className="sidebar__group sidebar__group--top">
         <div className="sidebar-brand">
-          <img src="/sugihara-grand-logo.png" alt="Sugihara Grand Industries" />
+          <img src="/sugihara-mark-white.png" alt="Sugihara Grand Industries" />
           <div>
-            <strong>Sugihara</strong>
-            <span>Production Assets</span>
+            <strong>Production Overview</strong>
+            <span>Live control room</span>
           </div>
         </div>
-
-        <button
-          className="sidebar-user"
-          type="button"
-          aria-label={isGuest ? "Guest view-only access" : "Open profile summary"}
-          disabled={isGuest}
-          onClick={onMenu}
-        >
-          <span className="sidebar-user__avatar"><PersonIcon /></span>
-          <span className="sidebar-user__meta">
-            <strong>{displayName}</strong>
-            <small>{isGuest ? "View only" : "Control room"}</small>
-          </span>
-        </button>
-
       </div>
 
       <nav className="sidebar__group sidebar__group--middle" aria-label="Primary">
@@ -199,10 +182,7 @@ function Sidebar({ activePage, adminOpen, isAdmin, isGuest, onSelectPage, onMana
       </div>
 
       <div className="sidebar__group sidebar__group--bottom">
-        <div className="sidebar-dtu" aria-label="Digital Transformation Unit" title="Digital Transformation Unit">
-          <span>DTU</span>
-          <small>Digital Transformation Unit</small>
-        </div>
+        <div className="sidebar-dtu" aria-label="Digital Transformation Unit">© Digital Transformation Unit</div>
         <button className="icon-btn icon-btn--logout" type="button" aria-label="Log out" onClick={onLogout}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
@@ -1390,7 +1370,7 @@ function PortfolioPanel({ sites, totalSummary }) {
   return (
     <aside className="portfolio-panel">
       <div className="portfolio-panel__brand">
-        <img src="/sugihara-grand-logo.png" alt="" />
+        <img src="/sugihara-mark-white.png" alt="" />
         <span>Live</span>
       </div>
       <h2>Production Portfolio</h2>
@@ -1485,7 +1465,7 @@ function MobileHeader({ activePage, adminOpen, displayName, isAdmin, isGuest, on
         onClick={onOpenProfile}
       >
         <span className="mobile-header__avatar">
-          <img src="/pwa-192x192.png" alt="" />
+          <img src="/sugihara-mark-white.png" alt="" />
         </span>
         <span className="mobile-header__identity">
           <small>Sugihara</small>
@@ -1867,20 +1847,6 @@ function Dashboard({ user, onLogout }) {
     return () => socket.disconnect();
   }, [onLogout, visibleLineIds, refreshLineConfigs]);
 
-  function handleMenu() {
-    if (isGuest) return;
-
-    if (window.matchMedia("(max-width: 767px)").matches) {
-      setMobileNavOpen((open) => !open);
-      setProfileOpen(false);
-      setAdminOpen(false);
-      return;
-    }
-
-    setProfileOpen((open) => !open);
-    setAdminOpen(false);
-  }
-
   function handleLogout() {
     setProfileOpen(false);
     setAdminOpen(false);
@@ -2044,13 +2010,11 @@ function Dashboard({ user, onLogout }) {
         isAdmin={isAdmin}
         isGuest={isGuest}
         onSelectPage={setActivePage}
-        onMenu={handleMenu}
         onManageAccounts={handleToggleAdmin}
         onLogout={handleLogout}
         isMobileNavOpen={mobileNavOpen}
         onCloseMobileNav={() => setMobileNavOpen(false)}
         sites={siteSummaries}
-        user={user}
       />
       <button
         className={`mobile-nav-backdrop ${mobileNavOpen ? "is-visible" : ""}`}

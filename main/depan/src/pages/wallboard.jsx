@@ -173,7 +173,7 @@ function Wallboard({ user, onLogout }) {
   return (
     <main className="wallboard">
       <header className="wallboard__header">
-        <div className="wallboard__brand"><img src="/sugihara-grand-white.png" alt="Sugihara Grand Industries" /><div><h1>Production Control Center</h1></div></div>
+        <div className="wallboard__brand"><img src="/sugihara-mark-white.png" alt="Sugihara Grand Industries" /><div><h1>Production Control Center</h1></div></div>
         <div className="wallboard__header-right">
           {!connected && <div className="wallboard__connection"><span aria-hidden="true"></span>Data feed reconnecting</div>}
           {lineError && <div className="wallboard__connection" role="alert">{lineError}</div>}

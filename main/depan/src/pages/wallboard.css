@@ -17,7 +17,7 @@
 .wallboard__header, .wallboard__header-right, .wallboard__brand, .wallboard__footer, .wallboard__footer > div { display: flex; align-items: center; }
 .wallboard__header { position: relative; justify-content: space-between; min-height: clamp(56px, 6.5vh, 72px); }
 .wallboard__brand { gap: clamp(12px, 1vw, 20px); }
-.wallboard__brand img { width: clamp(160px, 11.5vw, 220px); height: clamp(44px, 3.6vw, 62px); object-fit: contain; object-position: left center; }
+.wallboard__brand img { width: clamp(44px, 3.6vw, 62px); height: clamp(44px, 3.6vw, 62px); object-fit: contain; object-position: left center; }
 .wallboard__brand span { color: #82a1c9; font-size: clamp(10px, .72vw, 14px); font-weight: 800; letter-spacing: .18em; text-transform: uppercase; }
 .wallboard__brand h1 { margin: 0; font-family: var(--wall-font); font-size: clamp(23px, 1.72vw, 34px); font-weight: 600; line-height: 1; letter-spacing: -.025em; }
 .wallboard__header-right { gap: clamp(10px, 1vw, 18px); }
@@ -84,7 +84,7 @@
 @media (max-width: 760px) {
   .wallboard { display: block; padding: 14px; overflow: auto; }
   .wallboard__header { align-items: flex-start; }
-  .wallboard__brand img { width: 120px; height: 40px; }
+  .wallboard__brand img { width: 40px; height: 40px; }
   .wallboard__connection, .wallboard__clock span { display: none; }
   .wallboard__clock { min-width: auto; }
   .wall-summary { grid-template-columns: repeat(2, 1fr); margin: 12px 0; }

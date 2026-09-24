@@ -64,9 +64,12 @@ const localAdmin = {
     enabled: process.env.ENABLE_LOCAL_ADMIN === "true",
     username: process.env.LOCAL_ADMIN_USERNAME || String(process.env.LOCAL_ADMIN_EMAIL || "admin").split("@")[0],
     email: process.env.LOCAL_ADMIN_EMAIL || "admin@local.test",
-    password: process.env.LOCAL_ADMIN_PASSWORD || "admin123",
+    password: process.env.LOCAL_ADMIN_PASSWORD || "",
     name: process.env.LOCAL_ADMIN_NAME || "Local Admin",
 };
+if (localAdmin.enabled && localAdmin.password.length < 8) {
+    throw new Error("ENABLE_LOCAL_ADMIN requires LOCAL_ADMIN_PASSWORD with at least 8 characters.");
+}
 const auth = createAuthRouter({
     pool,
     hasDatabaseConfig,
