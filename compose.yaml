@@ -1,0 +1,15 @@
+name: production-overview
+
+services:
+  app:
+    build: .
+    env_file:
+      - ./main/server/.env
+    environment:
+      NODE_ENV: production
+      PORT: "3200"
+    ports:
+      - "3200:3200"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

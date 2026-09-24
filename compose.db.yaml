@@ -1,0 +1,28 @@
+# Add this file when PostgreSQL should run on the AI PC in Docker.
+# Use: docker compose --env-file main/server/.env -f compose.yaml -f compose.db.yaml up -d --build
+services:
+  app:
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ${DB_USER:?Set DB_USER in main/server/.env}
+      POSTGRES_PASSWORD: ${DB_PASS:?Set DB_PASS in main/server/.env}
+      POSTGRES_DB: ${DB_DB:?Set DB_DB in main/server/.env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
