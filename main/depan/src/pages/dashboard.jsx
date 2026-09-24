@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -1673,6 +1673,13 @@ function Dashboard({ user, onLogout }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [selectedLineId, setSelectedLineId] = useState(null);
   const [telemetryHistory, setTelemetryHistory] = useState({ overall: [], lines: {} });
+  const previousPage = useRef(activePage);
+
+  useLayoutEffect(() => {
+    if (previousPage.current === activePage) return;
+    previousPage.current = activePage;
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [activePage]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => refreshLineConfigs().catch((error) => setLineError(error.message)), 0);
@@ -2095,6 +2102,7 @@ function Dashboard({ user, onLogout }) {
           </div>
         </header>
 
+        <div className="dashboard-page" key={activePage}>
         {activePage === "progress" && (
           <>
             <MobileHero displayName={displayName} isGuest={isGuest} totalSummary={totalSummary} sites={siteSummaries} />
@@ -2183,6 +2191,7 @@ function Dashboard({ user, onLogout }) {
         {activePage === "lines" && isAdmin && <LineManagementPage lines={lineConfigs} liveLines={seededLines} busy={adminBusy} error={lineManageError || lineError} onAdd={handleAddLine} onUpdate={handleUpdateLine} onRemove={handleRemoveLine} onReorder={handleReorderLines} />}
         {activePage === "attendance" && <PlaceholderPage title="Attendance" />}
         {activePage === "history" && <PlaceholderPage title="History" />}
+        </div>
 
         <footer className="dashboard-footer">
           <span>© Digital Transformation Unit</span>
