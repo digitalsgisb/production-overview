@@ -28,6 +28,8 @@ const API_URL = import.meta.env.DEV
 const HISTORY_LIMIT = 28;
 const ADMIN_ROLES = ["Admin", "Supervisor", "Line Leader", "Operator", "Viewer"];
 const ADMIN_SITES = ["Port Klang", "Sendayan"];
+const LINE_STATE_LABELS = { active: "Active", commissioning: "Commissioning", maintenance: "Under maintenance" };
+const isActiveLine = (config) => !config || (config.operationalState || "active") === "active";
 
 function normalizeAdminSites(sites) {
   const list = Array.isArray(sites) ? sites : [];
@@ -501,6 +503,7 @@ function LineDetailModal({ lineId, line, config, onClose }) {
         </header>
 
         <div className="line-modal-body">
+          {!isActiveLine(config) && <div className="line-card__admin-state" role="status"><strong>{LINE_STATE_LABELS[config.operationalState]}</strong><span>These readings are unverified and excluded from overview totals.</span>{config.stateNote && <small>{config.stateNote}</small>}</div>}
           <div className="modal-top-row">
             <div>
               <span className="stat-label">OEE</span>
@@ -758,15 +761,20 @@ function LineSettings({ line, busy, onUpdate, onRemove }) {
     <label>Card size<select value={draft.cardSize || "standard"} onChange={(event) => setDraft((current) => ({ ...current, cardSize: event.target.value }))}>
       <option value="compact">Compact</option><option value="standard">Standard</option><option value="wide">Wide</option>
     </select></label>
+    <label>Line state<select value={draft.operationalState || "active"} onChange={(event) => setDraft((current) => ({ ...current, operationalState: event.target.value }))}>
+      <option value="active">Active — include in totals</option><option value="commissioning">Commissioning — exclude from totals</option><option value="maintenance">Maintenance — exclude from totals</option>
+    </select></label>
+    <label>State note (optional)<input value={draft.stateNote || ""} maxLength="240" placeholder="e.g. Sensor calibration in progress" onChange={(event) => setDraft((current) => ({ ...current, stateNote: event.target.value }))} /></label>
+    <p className="line-state-help">Only admins can change this state. Commissioning and Maintenance keep live data visible, but the readings are excluded from overview totals.</p>
     <div className="line-settings-actions"><button type="submit" disabled={busy}>Save changes</button><button type="button" className="line-delete-btn" disabled={busy} onClick={() => onRemove(line)}>Delete line</button></div>
   </form>;
 }
 
 function LineManagementPage({ lines, liveLines, busy, error, onAdd, onUpdate, onRemove, onReorder }) {
-  const [draft, setDraft] = useState({ lineId: "", name: "", site: ADMIN_SITES[0], dashboardUrl: "", cardSize: "standard" });
+  const [draft, setDraft] = useState({ lineId: "", name: "", site: ADMIN_SITES[0], dashboardUrl: "", cardSize: "standard", operationalState: "active", stateNote: "" });
   async function submit(event) {
     event.preventDefault();
-    if (await onAdd(draft)) setDraft({ lineId: "", name: "", site: ADMIN_SITES[0], dashboardUrl: "", cardSize: "standard" });
+    if (await onAdd(draft)) setDraft({ lineId: "", name: "", site: ADMIN_SITES[0], dashboardUrl: "", cardSize: "standard", operationalState: "active", stateNote: "" });
   }
   function dropLine(event, site, targetId) {
     event.preventDefault();
@@ -788,6 +796,8 @@ function LineManagementPage({ lines, liveLines, busy, error, onAdd, onUpdate, on
         <label>Name<input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} required maxLength="80" placeholder="Assembly 8" /></label>
         <label>Site<select value={draft.site} onChange={(event) => setDraft((current) => ({ ...current, site: event.target.value }))}>{ADMIN_SITES.map((site) => <option key={site}>{site}</option>)}</select></label>
         <label>Card size<select value={draft.cardSize} onChange={(event) => setDraft((current) => ({ ...current, cardSize: event.target.value }))}><option value="compact">Compact</option><option value="standard">Standard</option><option value="wide">Wide</option></select></label>
+        <label>Line state<select value={draft.operationalState} onChange={(event) => setDraft((current) => ({ ...current, operationalState: event.target.value }))}><option value="active">Active</option><option value="commissioning">Commissioning</option><option value="maintenance">Maintenance</option></select></label>
+        <label>State note (optional)<input value={draft.stateNote} maxLength="240" onChange={(event) => setDraft((current) => ({ ...current, stateNote: event.target.value }))} /></label>
         <label>Dashboard URL (optional)<input type="url" value={draft.dashboardUrl} onChange={(event) => setDraft((current) => ({ ...current, dashboardUrl: event.target.value }))} placeholder="https://" /></label>
       </div>
       <button type="submit" disabled={busy}>{busy ? "Saving..." : "Add line"}</button>
@@ -800,8 +810,8 @@ function LineManagementPage({ lines, liveLines, busy, error, onAdd, onUpdate, on
         <div className="line-management-list">{siteLines.map((line, index) => {
           const status = getStatusConfig(getLineValue(liveLines[line.lineId], ["machine_mode", "mode", "status"], "offline"));
           return <details className="line-management-row" key={line.lineId} draggable={!busy} onDragStart={(event) => event.dataTransfer.setData("text/plain", line.lineId)} onDragOver={(event) => event.preventDefault()} onDrop={(event) => dropLine(event, site, line.lineId)}>
-            <summary><span className="line-drag-handle" aria-hidden="true">⋮⋮</span><span className="line-management-row__identity"><strong>{line.name}</strong><small>{line.lineId} · {line.cardSize || "standard"} card</small></span><span className="line-management-row__status" style={{ color: status.bg }}>{status.label}</span><span className="line-management-row__arrows"><button type="button" disabled={busy || index === 0} aria-label={`Move ${line.name} up`} onClick={(event) => { event.preventDefault(); const next = [...siteLines.map((item) => item.lineId)]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; onReorder(site, next); }}>↑</button><button type="button" disabled={busy || index === siteLines.length - 1} aria-label={`Move ${line.name} down`} onClick={(event) => { event.preventDefault(); const next = [...siteLines.map((item) => item.lineId)]; [next[index + 1], next[index]] = [next[index], next[index + 1]]; onReorder(site, next); }}>↓</button></span></summary>
-            <LineSettings key={`${line.lineId}:${line.name}:${line.site}:${line.dashboardUrl}:${line.cardSize}`} line={line} busy={busy} onUpdate={onUpdate} onRemove={onRemove} />
+            <summary><span className="line-drag-handle" aria-hidden="true">⋮⋮</span><span className="line-management-row__identity"><strong>{line.name}</strong><small>{line.lineId} · {line.cardSize || "standard"} card · {LINE_STATE_LABELS[line.operationalState || "active"]}</small></span><span className="line-management-row__status" style={{ color: status.bg }}>{status.label}</span><span className="line-management-row__arrows"><button type="button" disabled={busy || index === 0} aria-label={`Move ${line.name} up`} onClick={(event) => { event.preventDefault(); const next = [...siteLines.map((item) => item.lineId)]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; onReorder(site, next); }}>↑</button><button type="button" disabled={busy || index === siteLines.length - 1} aria-label={`Move ${line.name} down`} onClick={(event) => { event.preventDefault(); const next = [...siteLines.map((item) => item.lineId)]; [next[index + 1], next[index]] = [next[index], next[index + 1]]; onReorder(site, next); }}>↓</button></span></summary>
+            <LineSettings key={`${line.lineId}:${line.name}:${line.site}:${line.dashboardUrl}:${line.cardSize}:${line.operationalState}:${line.stateNote}`} line={line} busy={busy} onUpdate={onUpdate} onRemove={onRemove} />
           </details>;
         })}</div>
         {siteLines.length === 0 && <p className="line-management-empty">No lines at this site yet.</p>}
@@ -1160,7 +1170,7 @@ function createFallbackLine(lineId) {
 }
 
 function ProductionSection({ id, title, lineIds, lines, configs, onSelectLine, onReorder, onResize, editingLayout = false, readOnly = false }) {
-  const sectionLines = lineIds.map((lineId) => lines[lineId] ?? createFallbackLine(lineId));
+  const sectionLines = lineIds.filter((lineId) => isActiveLine(configs.find((item) => item.lineId === lineId))).map((lineId) => lines[lineId] ?? createFallbackLine(lineId));
   const runningCount = sectionLines.filter((line) => {
     const status = String(getLineValue(line, ["machine_mode", "mode", "status"], "offline"))
       .trim()
@@ -1176,7 +1186,7 @@ function ProductionSection({ id, title, lineIds, lines, configs, onSelectLine, o
     <section className="plant-section" id={id}>
       <div className="plant-heading">
         <div>
-          <p className="plant-eyebrow">{lineIds.length} production lines</p>
+          <p className="plant-eyebrow">{sectionLines.length} active · {lineIds.length - sectionLines.length} excluded</p>
           <h2 className="plant-title">{title}</h2>
         </div>
         <div className="plant-metrics" aria-label={`${title} summary`}>
@@ -1203,6 +1213,8 @@ function ProductionSection({ id, title, lineIds, lines, configs, onSelectLine, o
             key={lineId}
             lineId={lineId}
             displayName={config?.name}
+            operationalState={config?.operationalState}
+            stateNote={config?.stateNote}
             line={lines[lineId] ?? createFallbackLine(lineId)}
             onSelectLine={onSelectLine}
             readOnly={readOnly}
@@ -1659,6 +1671,7 @@ function Dashboard({ user, onLogout }) {
   }, []);
   const visibleSites = useMemo(() => (isAdmin || isGuest ? ADMIN_SITES : normalizeAdminSites(user?.sites)), [isAdmin, isGuest, user?.sites]);
   const visibleLineIds = useMemo(() => lineConfigs.filter((config) => visibleSites.includes(config.site)).map((config) => config.lineId), [lineConfigs, visibleSites]);
+  const activeLineIds = useMemo(() => lineConfigs.filter((config) => visibleSites.includes(config.site) && isActiveLine(config)).map((config) => config.lineId), [lineConfigs, visibleSites]);
   const siteLineIds = useCallback((site) => lineConfigs.filter((config) => config.site === site).map((config) => config.lineId), [lineConfigs]);
   const [lines, setLines] = useState({});
   const [feedConnected, setFeedConnected] = useState(false);
@@ -1711,7 +1724,7 @@ function Dashboard({ user, onLogout }) {
 
   const siteSummaries = useMemo(() => {
     const buildSite = (key, name, lineIds) => {
-      const siteLines = lineIds.map((lineId) => seededLines[lineId] ?? createFallbackLine(lineId));
+      const siteLines = lineIds.filter((lineId) => isActiveLine(lineConfigs.find((config) => config.lineId === lineId))).map((lineId) => seededLines[lineId] ?? createFallbackLine(lineId));
       const actual = siteLines.reduce((sum, line) => sum + getNumber(getLineMetric(line, ["product_count", "count"])), 0);
       const target = siteLines.reduce((sum, line) => sum + getNumber(getLineMetric(line, ["target", "hourly_plan"])), 0);
       const oee = siteLines.length > 0
@@ -1726,10 +1739,10 @@ function Dashboard({ user, onLogout }) {
       buildSite("klang", "Port Klang", siteLineIds("Port Klang")),
       buildSite("sendayan", "Sendayan", siteLineIds("Sendayan")),
     ].filter((site) => visibleSites.includes(site.name));
-  }, [seededLines, visibleSites, siteLineIds]);
+  }, [seededLines, visibleSites, siteLineIds, lineConfigs]);
 
   const totalSummary = useMemo(() => {
-    const allLines = visibleLineIds.map((lineId) => seededLines[lineId] ?? createFallbackLine(lineId));
+    const allLines = activeLineIds.map((lineId) => seededLines[lineId] ?? createFallbackLine(lineId));
     const actual = allLines.reduce((sum, line) => sum + getNumber(getLineMetric(line, ["product_count", "count"])), 0);
     const target = allLines.reduce((sum, line) => sum + getNumber(getLineMetric(line, ["target", "hourly_plan"])), 0);
     const rejects = allLines.reduce((sum, line) => sum + getNumber(getLineMetric(line, ["product_reject", "reject"])), 0);
@@ -1739,18 +1752,18 @@ function Dashboard({ user, onLogout }) {
       : 0;
     const progress = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 0;
 
-    return { actual, components, target, rejects, oee, progress, lineCount: allLines.length };
-  }, [seededLines, visibleLineIds]);
+    return { actual, components, target, rejects, oee, progress, lineCount: allLines.length, excludedCount: visibleLineIds.length - allLines.length };
+  }, [seededLines, visibleLineIds, activeLineIds]);
 
   const telemetrySample = useMemo(() => {
     return {
       overall: totalSummary.oee,
-      lines: visibleLineIds.reduce((acc, lineId) => {
+      lines: activeLineIds.reduce((acc, lineId) => {
         acc[lineId] = getLineOee(seededLines[lineId] ?? createFallbackLine(lineId));
         return acc;
       }, {}),
     };
-  }, [seededLines, totalSummary.oee, visibleLineIds]);
+  }, [seededLines, totalSummary.oee, activeLineIds]);
 
   const telemetrySampleRef = useRef(telemetrySample);
 
@@ -1796,7 +1809,7 @@ function Dashboard({ user, onLogout }) {
 
   const displayName = user?.name || user?.username || "User";
   const focusLineId = useMemo(() => {
-    const runningLine = visibleLineIds.find((lineId) => {
+    const runningLine = activeLineIds.find((lineId) => {
       const status = String(getLineValue(seededLines[lineId], ["machine_mode", "mode", "status"], "offline"))
         .trim()
         .toLowerCase()
@@ -1805,8 +1818,8 @@ function Dashboard({ user, onLogout }) {
       return status === "normal" || status === "running";
     });
 
-    return runningLine || visibleLineIds[0];
-  }, [seededLines, visibleLineIds]);
+    return runningLine || activeLineIds[0];
+  }, [seededLines, activeLineIds]);
 
   useEffect(() => {
     const socket = io(SOCKET_URL, {
@@ -2136,7 +2149,7 @@ function Dashboard({ user, onLogout }) {
               <SummaryCard
                 label="Overall OEE"
                 value={`${totalSummary.oee}%`}
-                detail={`${totalSummary.lineCount} monitored lines`}
+                detail={`${totalSummary.lineCount} active lines · ${totalSummary.excludedCount} excluded`}
                 tone="oee"
               />
               <SummaryCard

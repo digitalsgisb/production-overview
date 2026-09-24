@@ -2,6 +2,8 @@
 
 Live mobile and desktop monitoring for Port Klang and Sendayan. Node-RED sends line events to the API; browsers receive updates over Socket.IO. Admins manage lines from the **Lines** page beside **Progress**. Attendance and History are still placeholders.
 
+Admins can set each line to **Active**, **Commissioning**, or **Maintenance** in **Lines** and add a short note. Commissioning and Maintenance keep receiving Node-RED data but show muted cards with an unverified label. Their OEE, output, target, and rejects are excluded from dashboard and wallboard totals until an admin marks them Active again. Status changes are saved in PostgreSQL and reach open dashboards live.
+
 ## Docker migration: Raspberry Pi to AI PC
 
 **Do not stop the Pi now.** Keep the Pi application, PostgreSQL, and Node-RED traffic running while you prepare the AI PC. Pause Node-RED writes and stop the Pi backend only for the final database copy and cutover. After the AI PC is receiving live data and users can sign in, stop and disable the Pi application services. Keep the Pi database as a rollback copy until you are confident in the new system.

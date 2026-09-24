@@ -4,12 +4,41 @@ const { createLineRegistry, validateLine, DEFAULT_LINES } = require('./line-regi
 
 test('new line details are validated before registration', () => {
     assert.deepEqual(validateLine({ lineId: 'abb8', name: 'Assembly 8', site: 'Port Klang', dashboardUrl: '' }), {
-        lineId: 'ABB8', name: 'Assembly 8', site: 'Port Klang', dashboardUrl: '', cardSize: 'standard',
+        lineId: 'ABB8', name: 'Assembly 8', site: 'Port Klang', dashboardUrl: '', cardSize: 'standard', operationalState: 'active', stateNote: '',
     });
     assert.throws(() => validateLine({ lineId: 'bad id', name: 'X', site: 'Port Klang' }), /Line ID/);
     assert.throws(() => validateLine({ lineId: 'ABB8', name: 'X', site: 'Unknown' }), /Choose/);
     assert.throws(() => validateLine({ lineId: 'ABB8', name: 'X', site: 'Port Klang', dashboardUrl: 'javascript:alert(1)' }), /Dashboard URL/);
     assert.throws(() => validateLine({ lineId: 'ABB8', name: 'X', site: 'Port Klang', cardSize: 'giant' }), /card size/);
+    assert.throws(() => validateLine({ lineId: 'ABB8', name: 'X', site: 'Port Klang', operationalState: 'broken' }), /line state/);
+    assert.throws(() => validateLine({ lineId: 'ABB8', name: 'X', site: 'Port Klang', stateNote: 'x'.repeat(241) }), /state note/);
+});
+
+test('admin line state persists across a registry reload', async () => {
+    const rows = new Map(DEFAULT_LINES.map((line, index) => [line.lineId, {
+        line_id: line.lineId, display_name: line.name, site: line.site, dashboard_url: line.dashboardUrl || '',
+        card_size: 'standard', operational_state: 'active', state_note: '', sort_order: index, deleted: false,
+    }]));
+    const pool = {
+        async query(sql, params = []) {
+            if (sql.includes('CREATE TABLE') || sql.includes('ALTER TABLE')) return { rows: [] };
+            if (sql.includes('ON CONFLICT (line_id) DO NOTHING')) return { rows: [] };
+            if (sql.includes('SELECT line_id')) return { rows: [...rows.values()].filter((row) => !row.deleted) };
+            if (sql.includes('SET display_name =')) {
+                const row = rows.get(params[7]);
+                row.operational_state = params[5];
+                row.state_note = params[6];
+                return { rows: [] };
+            }
+            throw new Error(`Unexpected query: ${sql}`);
+        },
+    };
+    const first = createLineRegistry({ pool, hasDatabaseConfig: true });
+    await first.update('ABB2', { operationalState: 'maintenance', stateNote: 'Sensor calibration' });
+    const restarted = createLineRegistry({ pool, hasDatabaseConfig: true });
+    await restarted.ensureLoaded();
+    assert.equal(restarted.list().find((line) => line.lineId === 'ABB2').operationalState, 'maintenance');
+    assert.equal(restarted.list().find((line) => line.lineId === 'ABB2').stateNote, 'Sensor calibration');
 });
 
 test('registered lines persist and become available for live data without a restart', async () => {

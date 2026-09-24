@@ -56,7 +56,9 @@ const STATUS_CONFIG = {
     return "#ef3f5f";
   }
 
-  function LineCard({ lineId, displayName, line, onSelectLine, readOnly = false }) {
+  function LineCard({ lineId, displayName, line, operationalState = "active", stateNote = "", onSelectLine, readOnly = false }) {
+    const excluded = operationalState !== "active";
+    const stateLabel = operationalState === "commissioning" ? "Commissioning" : "Under maintenance";
     const status = getLineValue(line, ["machine_mode", "mode", "status"], "offline");
     const count = toNumber(getLineValue(line, ["product_count", "count"], 0));
     const target = toNumber(getLineValue(line, ["target", "hourly_plan"], 0));
@@ -87,7 +89,7 @@ const STATUS_CONFIG = {
 
     return (
       <CardElement
-        className={`line-card ${readOnly ? "line-card--readonly" : ""}`}
+        className={`line-card ${readOnly ? "line-card--readonly" : ""} ${excluded ? "line-card--excluded" : ""}`}
         {...(!readOnly && {
           type: "button",
           onClick: () => onSelectLine(lineId),
@@ -96,6 +98,7 @@ const STATUS_CONFIG = {
         style={{ "--status-color": cfg.bg, "--status-fg": cfg.fg, "--oee-color": oeeColor, "--oee-angle": `${ringValue}deg` }}
       >
         <div className="line-card__body">
+          {excluded && <div className="line-card__admin-state" role="status"><strong>{stateLabel}</strong><span>Readings unverified · Excluded from totals</span>{stateNote && <small>{stateNote}</small>}</div>}
           <div className="line-card__top">
             <div className="line-card__identity">
               <span className="line-id-label">Line</span>

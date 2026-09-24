@@ -58,6 +58,8 @@ function getBalanceDetail(value) {
 }
 
 function WallboardLineCard({ lineId, line, config }) {
+  const excluded = config?.operationalState && config.operationalState !== "active";
+  const stateLabel = config?.operationalState === "commissioning" ? "Commissioning" : "Under maintenance";
   const status = getStatus(line);
   const oee = getOee(line);
   const count = numberValue(lineValue(line, ["product_count", "count"]));
@@ -68,7 +70,8 @@ function WallboardLineCard({ lineId, line, config }) {
   const model = lineValue(line, ["model"], "No model");
   const components = [["Availability", lineValue(line, ["availability_pct", "availability_pctm"])], ["Performance", lineValue(line, ["performance_pct"])], ["Quality", lineValue(line, ["quality_pct"])] ];
   return (
-    <article className={`wall-line wall-line--${oeeTone(oee)} ${status.key === "offline" ? "is-offline" : ""}`} style={{ "--line-status": status.color, "--line-progress": `${progress}%` }}>
+    <article className={`wall-line wall-line--${oeeTone(oee)} ${status.key === "offline" ? "is-offline" : ""} ${excluded ? "wall-line--excluded" : ""}`} style={{ "--line-status": status.color, "--line-progress": `${progress}%` }}>
+      {excluded && <div className="wall-line__admin-state"><strong>{stateLabel}</strong><span>Unverified · Excluded from totals</span>{config.stateNote && <small>{config.stateNote}</small>}</div>}
       <div className="wall-line__head">
         <div className="wall-line__identity">
           <span className="wall-line__site">{config?.site || "Production"}</span>
@@ -134,6 +137,7 @@ function Wallboard({ user, onLogout }) {
     .filter((site) => user?.role === "Admin" || user?.role === "Guest" || user?.sites?.includes(site))
     .map((site) => ({ name: site, lines: lineConfigs.filter((line) => line.site === site).map((line) => line.lineId) })), [user, lineConfigs]);
   const visibleLineIds = useMemo(() => visibleSites.flatMap((site) => site.lines), [visibleSites]);
+  const activeLineIds = useMemo(() => lineConfigs.filter((config) => visibleLineIds.includes(config.lineId) && (!config.operationalState || config.operationalState === "active")).map((config) => config.lineId), [lineConfigs, visibleLineIds]);
   const [lines, setLines] = useState({});
   const [connected, setConnected] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -161,7 +165,7 @@ function Wallboard({ user, onLogout }) {
     return () => socket.disconnect();
   }, [onLogout, visibleLineIds, refreshLines]);
 
-  const seededLines = useMemo(() => visibleLineIds.map((lineId) => lines[lineId] || fallbackLine(lineId)), [lines, visibleLineIds]);
+  const seededLines = useMemo(() => activeLineIds.map((lineId) => lines[lineId] || fallbackLine(lineId)), [lines, activeLineIds]);
   const summary = useMemo(() => {
     const actual = seededLines.reduce((total, line) => total + numberValue(lineValue(line, ["product_count", "count"])), 0);
     const target = seededLines.reduce((total, line) => total + numberValue(lineValue(line, ["target", "hourly_plan"])), 0);
@@ -191,7 +195,7 @@ function Wallboard({ user, onLogout }) {
         </div>
       </header>
       <section className="wall-summary" aria-label="Factory summary">
-        <SummaryMetric label="OEE" value={`${formatPercent(summary.oee)}%`} detail={`${summary.running}/${visibleLineIds.length} running`} tone={oeeTone(summary.oee)} emphasis />
+        <SummaryMetric label="OEE" value={`${formatPercent(summary.oee)}%`} detail={`${summary.running}/${activeLineIds.length} active lines running · ${visibleLineIds.length - activeLineIds.length} excluded`} tone={oeeTone(summary.oee)} emphasis />
         <SummaryMetric label="Output" value={summary.actual.toLocaleString()} detail={`Plan ${summary.target.toLocaleString()}`} tone="blue" />
         <SummaryMetric label="Plan" value={`${Math.round(summary.progress)}%`} detail={getBalanceDetail(summary.planBalance)} tone="cyan" progress={summary.progress} />
         <SummaryMetric label="Reject" value={summary.rejects.toLocaleString()} tone={summary.rejects > 0 ? "alert" : "good"} emphasis={summary.rejects > 0} />
@@ -200,7 +204,7 @@ function Wallboard({ user, onLogout }) {
         {visibleLineIds.map((lineId) => <WallboardLineCard key={lineId} lineId={lineId} line={lines[lineId] || fallbackLine(lineId)} config={lineConfigs.find((config) => config.lineId === lineId)} />)}
       </section>
       <footer className="wallboard__footer">
-        <div>{visibleSites.map((site) => { const running = site.lines.filter((lineId) => getStatus(lines[lineId] || fallbackLine(lineId)).label === "Running").length; return <span key={site.name}><i></i>{site.name}: {running}/{site.lines.length} running</span>; })}</div>
+        <div>{visibleSites.map((site) => { const activeIds = site.lines.filter((lineId) => activeLineIds.includes(lineId)); const running = activeIds.filter((lineId) => getStatus(lines[lineId] || fallbackLine(lineId)).label === "Running").length; return <span key={site.name}><i></i>{site.name}: {running}/{activeIds.length} active lines running</span>; })}</div>
         <span>Last update: {lastUpdated ? lastUpdated.toLocaleTimeString("en-MY", { hour12: false }) : "Waiting for live data"}</span>
       </footer>
     </main>

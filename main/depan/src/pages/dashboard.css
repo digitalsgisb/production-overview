@@ -1475,6 +1475,26 @@ button {
   transform: translateY(-2px);
 }
 
+.line-card--excluded {
+  border-color: rgba(113, 190, 209, .36);
+  background: #121b29;
+}
+.line-card--excluded:hover { transform: none; border-color: rgba(113, 190, 209, .6); }
+.line-card--excluded .line-card__body > :not(.line-card__admin-state) { opacity: .46; filter: saturate(.35); }
+.line-card__admin-state {
+  display: grid;
+  gap: 3px;
+  padding: 9px 11px;
+  border: 1px solid rgba(113, 190, 209, .3);
+  border-radius: 8px;
+  background: rgba(64, 151, 181, .12);
+  color: #bde9f0;
+  font-size: 11px;
+  line-height: 1.35;
+}
+.line-card__admin-state strong { font-size: 12px; }
+.line-card__admin-state small { color: var(--text-secondary); font-size: 11px; overflow-wrap: anywhere; }
+
 .line-card__body {
   position: relative;
   z-index: 1;
@@ -3042,6 +3062,7 @@ button {
 .line-management-row__arrows button { width: 30px; height: 30px; border: 1px solid var(--card-border); border-radius: 6px; background: var(--bg-panel); color: var(--text-primary); cursor: pointer; }
 .line-management-row__arrows button:disabled { opacity: .35; cursor: default; }
 .line-management-row .admin-line-settings { padding: 0 14px 14px; margin: 0; }
+.line-state-help { color: var(--text-secondary); font-size: 12px; line-height: 1.45; }
 .line-settings-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .line-settings-actions button { padding: 0 14px; }
 .line-settings-actions .line-delete-btn { border-color: rgba(240, 94, 117, .4); background: rgba(240, 94, 117, .09); color: #ffc4cf; }
