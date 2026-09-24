@@ -58,7 +58,7 @@ const STATUS_CONFIG = {
 
   function LineCard({ lineId, displayName, line, operationalState = "active", stateNote = "", onSelectLine, readOnly = false }) {
     const excluded = operationalState !== "active";
-    const stateLabel = operationalState === "commissioning" ? "Commissioning" : "Under maintenance";
+    const stateLabel = operationalState === "out_of_commission" ? "Out of commission" : "Under maintenance";
     const status = getLineValue(line, ["machine_mode", "mode", "status"], "offline");
     const count = toNumber(getLineValue(line, ["product_count", "count"], 0));
     const target = toNumber(getLineValue(line, ["target", "hourly_plan"], 0));
@@ -98,7 +98,7 @@ const STATUS_CONFIG = {
         style={{ "--status-color": cfg.bg, "--status-fg": cfg.fg, "--oee-color": oeeColor, "--oee-angle": `${ringValue}deg` }}
       >
         <div className="line-card__body">
-          {excluded && <div className="line-card__admin-state" role="status"><strong>{stateLabel}</strong><span>Readings unverified · Excluded from totals</span>{stateNote && <small>{stateNote}</small>}</div>}
+          {excluded && <div className="line-card__admin-state" role="status"><strong>{stateLabel}</strong><span>Readings unverified · Excluded from totals</span><small><b>Reason:</b> {stateNote || "Not recorded"}</small></div>}
           <div className="line-card__top">
             <div className="line-card__identity">
               <span className="line-id-label">Line</span>

@@ -39,14 +39,17 @@
 .wall-summary__track span { display: block; height: 100%; border-radius: inherit; background: var(--metric-color); box-shadow: 0 0 12px color-mix(in srgb, var(--metric-color) 36%, transparent); }
 .wall-summary__metric--good { --metric-color: #20d487; } .wall-summary__metric--watch { --metric-color: #f5a524; } .wall-summary__metric--alert { --metric-color: #ef455c; } .wall-summary__metric--blue { --metric-color: #4f8cff; } .wall-summary__metric--cyan { --metric-color: #35cddd; }
 .wallboard__lines { position: relative; min-height: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: clamp(8px, .72vw, 12px); }
-.wall-line { --oee-color: #ef455c; grid-column: span 2; min-width: 0; min-height: 0; display: flex; flex-direction: column; justify-content: space-between; gap: clamp(6px, .6vh, 9px); overflow: hidden; padding: clamp(12px, .9vw, 17px); border: 0; border-radius: 8px; outline: 0; background: radial-gradient(circle at 92% 6%, color-mix(in srgb, var(--line-status) 8%, transparent), transparent 34%), linear-gradient(145deg, color-mix(in srgb, var(--line-status) 6%, #141d29), color-mix(in srgb, var(--line-status) 3%, #101823) 72%); box-shadow: 0 12px 28px rgba(0,0,0,.16); }
+.wall-line { --oee-color: #ef455c; position: relative; grid-column: span 2; min-width: 0; min-height: 0; display: flex; flex-direction: column; justify-content: space-between; gap: clamp(6px, .6vh, 9px); overflow: hidden; padding: clamp(12px, .9vw, 17px); border: 0; border-radius: 8px; outline: 0; background: radial-gradient(circle at 92% 6%, color-mix(in srgb, var(--line-status) 8%, transparent), transparent 34%), linear-gradient(145deg, color-mix(in srgb, var(--line-status) 6%, #141d29), color-mix(in srgb, var(--line-status) 3%, #101823) 72%); box-shadow: 0 12px 28px rgba(0,0,0,.16); }
 .wall-line:nth-child(4), .wall-line:nth-child(5) { grid-column: span 3; }
 .wall-line--good { --oee-color: #20d487; } .wall-line--watch { --oee-color: #f5a524; }
 .wall-line.is-offline { opacity: .52; filter: none; box-shadow: 0 8px 18px rgba(0,0,0,.1); }
 .wall-line--excluded, .wall-line--excluded.is-offline { opacity: 1; background: #111c29; outline: 1px solid rgba(113, 190, 209, .3); }
-.wall-line--excluded > :not(.wall-line__admin-state) { opacity: .43; filter: saturate(.35); }
-.wall-line__admin-state { display: grid; gap: 2px; padding: 7px 9px; border-radius: 6px; background: rgba(64, 151, 181, .14); color: #bde9f0; font-size: clamp(9px, .65vw, 12px); line-height: 1.3; }
-.wall-line__admin-state small { color: #a4b7c8; overflow-wrap: anywhere; }
+.wall-line--excluded > :not(.wall-line__admin-state) { opacity: .3; filter: saturate(.3); transition: opacity .35s ease, filter .35s ease; }
+.wall-line__admin-state { position: absolute; z-index: 2; top: 50%; left: 50%; width: calc(100% - 24px); max-width: 380px; max-height: calc(100% - 24px); display: grid; gap: 6px; overflow: auto; padding: 14px; transform: translate(-50%, -50%); border: 1px solid rgba(113, 190, 209, .5); border-radius: 10px; background: rgba(19, 43, 60, .97); color: #d7f4f7; font-size: clamp(10px, .74vw, 13px); line-height: 1.35; text-align: center; animation: wall-state-arrive .35s ease-out both, wall-state-breathe 4s ease-in-out .35s infinite; }
+.wall-line__admin-state strong { font-size: clamp(14px, 1vw, 19px); }
+.wall-line__admin-state small { color: #b9d6e0; overflow-wrap: anywhere; }
+@keyframes wall-state-arrive { from { opacity: 0; transform: translate(-50%, calc(-50% + 8px)) scale(.97); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes wall-state-breathe { 0%, 100% { box-shadow: 0 0 0 0 rgba(77, 192, 216, .08); } 50% { box-shadow: 0 0 0 5px rgba(77, 192, 216, .13); } }
 .wall-line__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .wall-line__identity { min-width: 0; }
 .wall-line__site { display: block; margin-bottom: 2px; color: #778da7; font-size: clamp(9px, .62vw, 12px); font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }

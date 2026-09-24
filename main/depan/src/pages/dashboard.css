@@ -1480,20 +1480,35 @@ button {
   background: #121b29;
 }
 .line-card--excluded:hover { transform: none; border-color: rgba(113, 190, 209, .6); }
-.line-card--excluded .line-card__body > :not(.line-card__admin-state) { opacity: .46; filter: saturate(.35); }
+.line-card--excluded .line-card__body > :not(.line-card__admin-state) { opacity: .32; filter: saturate(.3); transition: opacity .35s ease, filter .35s ease; }
 .line-card__admin-state {
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  left: 50%;
+  width: calc(100% - 32px);
+  max-width: 360px;
+  max-height: calc(100% - 28px);
   display: grid;
-  gap: 3px;
-  padding: 9px 11px;
-  border: 1px solid rgba(113, 190, 209, .3);
-  border-radius: 8px;
-  background: rgba(64, 151, 181, .12);
-  color: #bde9f0;
-  font-size: 11px;
-  line-height: 1.35;
+  gap: 7px;
+  overflow: auto;
+  padding: 16px;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(113, 190, 209, .5);
+  border-radius: 12px;
+  background: rgba(19, 43, 60, .97);
+  color: #d7f4f7;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
+  pointer-events: none;
+  animation: line-state-arrive .35s ease-out both, line-state-breathe 4s ease-in-out .35s infinite;
 }
-.line-card__admin-state strong { font-size: 12px; }
-.line-card__admin-state small { color: var(--text-secondary); font-size: 11px; overflow-wrap: anywhere; }
+.line-card__admin-state strong { font-size: 16px; }
+.line-card__admin-state small { color: #b9d6e0; font-size: 12px; overflow-wrap: anywhere; }
+.line-card__admin-state--inline { position: relative; top: auto; left: auto; width: 100%; max-width: none; max-height: none; transform: none; text-align: left; pointer-events: auto; animation: none; }
+@keyframes line-state-arrive { from { opacity: 0; transform: translate(-50%, calc(-50% + 10px)) scale(.97); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes line-state-breathe { 0%, 100% { box-shadow: 0 0 0 0 rgba(77, 192, 216, .08), 0 12px 32px rgba(0, 0, 0, .22); } 50% { box-shadow: 0 0 0 5px rgba(77, 192, 216, .13), 0 12px 32px rgba(0, 0, 0, .22); } }
 
 .line-card__body {
   position: relative;
@@ -2946,7 +2961,8 @@ button {
 
 .admin-username-control input,
 .admin-line-settings input,
-.admin-line-settings select {
+.admin-line-settings select,
+.admin-line-settings textarea {
   width: 100%;
   min-height: 38px;
   padding: 8px;
@@ -2955,6 +2971,7 @@ button {
   background: var(--bg-panel-soft);
   color: var(--text-primary);
 }
+.admin-line-settings textarea { min-height: 80px; resize: vertical; font: inherit; }
 
 .admin-username-control button,
 .admin-line-settings button {
@@ -3062,9 +3079,17 @@ button {
 .line-management-row__arrows button { width: 30px; height: 30px; border: 1px solid var(--card-border); border-radius: 6px; background: var(--bg-panel); color: var(--text-primary); cursor: pointer; }
 .line-management-row__arrows button:disabled { opacity: .35; cursor: default; }
 .line-management-row .admin-line-settings { padding: 0 14px 14px; margin: 0; }
+.line-reason-field small { color: var(--text-secondary); font-size: 11px; }
 .line-state-help { color: var(--text-secondary); font-size: 12px; line-height: 1.45; }
 .line-settings-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .line-settings-actions button { padding: 0 14px; }
+.line-settings-actions .line-save-btn { border-color: rgba(77, 192, 216, .5); background: rgba(77, 192, 216, .18); transition: background .2s ease, transform .2s ease, border-color .2s ease; }
+.line-settings-actions .line-save-btn:not(:disabled):hover { transform: translateY(-1px); background: rgba(77, 192, 216, .27); }
+.line-save-btn.is-saving::before { content: ""; display: inline-block; width: 12px; height: 12px; margin-right: 8px; vertical-align: -2px; border: 2px solid rgba(255,255,255,.32); border-top-color: #d7f4f7; border-radius: 50%; animation: line-save-spin .7s linear infinite; }
+.line-save-feedback { align-self: center; min-height: 18px; color: var(--text-secondary); font-size: 12px; }
+.line-save-feedback.is-saved { color: #8ee5c8; }
+.line-save-feedback.is-error { color: #ffb9c2; }
+@keyframes line-save-spin { to { transform: rotate(360deg); } }
 .line-settings-actions .line-delete-btn { border-color: rgba(240, 94, 117, .4); background: rgba(240, 94, 117, .09); color: #ffc4cf; }
 @media (min-width: 1100px) { .line-grid-item--wide { grid-column: span 2; } }
 @media (min-width: 768px) and (max-width: 920px) { :root { --sidebar-w: 76px; } .topbar-site, .topbar-date, .topbar-actions .user-chip__text { display: none; } }

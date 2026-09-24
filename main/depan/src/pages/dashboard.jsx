@@ -28,7 +28,7 @@ const API_URL = import.meta.env.DEV
 const HISTORY_LIMIT = 28;
 const ADMIN_ROLES = ["Admin", "Supervisor", "Line Leader", "Operator", "Viewer"];
 const ADMIN_SITES = ["Port Klang", "Sendayan"];
-const LINE_STATE_LABELS = { active: "Active", commissioning: "Commissioning", maintenance: "Under maintenance" };
+const LINE_STATE_LABELS = { active: "Active", out_of_commission: "Out of commission", maintenance: "Under maintenance" };
 const isActiveLine = (config) => !config || (config.operationalState || "active") === "active";
 
 function normalizeAdminSites(sites) {
@@ -503,7 +503,7 @@ function LineDetailModal({ lineId, line, config, onClose }) {
         </header>
 
         <div className="line-modal-body">
-          {!isActiveLine(config) && <div className="line-card__admin-state" role="status"><strong>{LINE_STATE_LABELS[config.operationalState]}</strong><span>These readings are unverified and excluded from overview totals.</span>{config.stateNote && <small>{config.stateNote}</small>}</div>}
+          {!isActiveLine(config) && <div className="line-card__admin-state line-card__admin-state--inline" role="status"><strong>{LINE_STATE_LABELS[config.operationalState]}</strong><span>These readings are unverified and excluded from overview totals.</span><small><b>Reason:</b> {config.stateNote || "Not recorded"}</small></div>}
           <div className="modal-top-row">
             <div>
               <span className="stat-label">OEE</span>
@@ -751,7 +751,19 @@ function UsernameControl({ user, busy, onUpdate }) {
 
 function LineSettings({ line, busy, onUpdate, onRemove }) {
   const [draft, setDraft] = useState(line);
-  return <form className="admin-line-settings" onSubmit={(event) => { event.preventDefault(); onUpdate(line.lineId, draft); }}>
+  const [saveState, setSaveState] = useState("");
+  const clearFeedbackTimer = useRef(null);
+  useEffect(() => () => window.clearTimeout(clearFeedbackTimer.current), []);
+  async function save(event) {
+    event.preventDefault();
+    window.clearTimeout(clearFeedbackTimer.current);
+    setSaveState("saving");
+    const savedLine = await onUpdate(line.lineId, draft);
+    setSaveState(savedLine ? "saved" : "error");
+    if (savedLine) setDraft(savedLine);
+    clearFeedbackTimer.current = window.setTimeout(() => setSaveState(""), 3500);
+  }
+  return <form className="admin-line-settings" onSubmit={save}>
     <strong>{line.lineId}</strong>
     <label>Name<input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} required maxLength="80" /></label>
     <label>Site<select value={draft.site} onChange={(event) => setDraft((current) => ({ ...current, site: event.target.value }))}>
@@ -761,12 +773,12 @@ function LineSettings({ line, busy, onUpdate, onRemove }) {
     <label>Card size<select value={draft.cardSize || "standard"} onChange={(event) => setDraft((current) => ({ ...current, cardSize: event.target.value }))}>
       <option value="compact">Compact</option><option value="standard">Standard</option><option value="wide">Wide</option>
     </select></label>
-    <label>Line state<select value={draft.operationalState || "active"} onChange={(event) => setDraft((current) => ({ ...current, operationalState: event.target.value }))}>
-      <option value="active">Active — include in totals</option><option value="commissioning">Commissioning — exclude from totals</option><option value="maintenance">Maintenance — exclude from totals</option>
+    <label>Line state<select value={draft.operationalState || "active"} disabled={busy} onChange={(event) => setDraft((current) => ({ ...current, operationalState: event.target.value, stateNote: event.target.value === "active" ? "" : current.stateNote }))}>
+      <option value="active">Active — include in totals</option><option value="out_of_commission">Out of commission — exclude from totals</option><option value="maintenance">Maintenance — exclude from totals</option>
     </select></label>
-    <label>State note (optional)<input value={draft.stateNote || ""} maxLength="240" placeholder="e.g. Sensor calibration in progress" onChange={(event) => setDraft((current) => ({ ...current, stateNote: event.target.value }))} /></label>
-    <p className="line-state-help">Only admins can change this state. Commissioning and Maintenance keep live data visible, but the readings are excluded from overview totals.</p>
-    <div className="line-settings-actions"><button type="submit" disabled={busy}>Save changes</button><button type="button" className="line-delete-btn" disabled={busy} onClick={() => onRemove(line)}>Delete line</button></div>
+    {draft.operationalState !== "active" && <label className="line-reason-field">Reason for this state<textarea value={draft.stateNote || ""} maxLength="240" rows="3" required disabled={busy} placeholder="e.g. Sensor calibration in progress" onChange={(event) => setDraft((current) => ({ ...current, stateNote: event.target.value }))} /><small>This reason appears on the live card for everyone.</small></label>}
+    <p className="line-state-help">Only admins can change this state. Out of commission and Maintenance keep live data visible, but the readings are excluded from overview totals.</p>
+    <div className="line-settings-actions"><button type="submit" className={`line-save-btn ${saveState === "saving" ? "is-saving" : ""}`} disabled={busy}>{saveState === "saving" ? "Saving…" : saveState === "saved" ? "✓ Saved" : "Save changes"}</button><button type="button" className="line-delete-btn" disabled={busy} onClick={() => onRemove(line)}>Delete line</button><span className={`line-save-feedback ${saveState ? `is-${saveState}` : ""}`} role="status" aria-live="polite">{saveState === "saving" ? "Updating live dashboards…" : saveState === "saved" ? "Saved and sent to viewers." : saveState === "error" ? "Could not save. Please try again." : ""}</span></div>
   </form>;
 }
 
@@ -796,8 +808,8 @@ function LineManagementPage({ lines, liveLines, busy, error, onAdd, onUpdate, on
         <label>Name<input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} required maxLength="80" placeholder="Assembly 8" /></label>
         <label>Site<select value={draft.site} onChange={(event) => setDraft((current) => ({ ...current, site: event.target.value }))}>{ADMIN_SITES.map((site) => <option key={site}>{site}</option>)}</select></label>
         <label>Card size<select value={draft.cardSize} onChange={(event) => setDraft((current) => ({ ...current, cardSize: event.target.value }))}><option value="compact">Compact</option><option value="standard">Standard</option><option value="wide">Wide</option></select></label>
-        <label>Line state<select value={draft.operationalState} onChange={(event) => setDraft((current) => ({ ...current, operationalState: event.target.value }))}><option value="active">Active</option><option value="commissioning">Commissioning</option><option value="maintenance">Maintenance</option></select></label>
-        <label>State note (optional)<input value={draft.stateNote} maxLength="240" onChange={(event) => setDraft((current) => ({ ...current, stateNote: event.target.value }))} /></label>
+        <label>Line state<select value={draft.operationalState} onChange={(event) => setDraft((current) => ({ ...current, operationalState: event.target.value, stateNote: event.target.value === "active" ? "" : current.stateNote }))}><option value="active">Active</option><option value="out_of_commission">Out of commission</option><option value="maintenance">Maintenance</option></select></label>
+        {draft.operationalState !== "active" && <label className="line-reason-field">Reason for this state<textarea value={draft.stateNote} maxLength="240" rows="3" required placeholder="e.g. Machine sensor needs repair" onChange={(event) => setDraft((current) => ({ ...current, stateNote: event.target.value }))} /></label>}
         <label>Dashboard URL (optional)<input type="url" value={draft.dashboardUrl} onChange={(event) => setDraft((current) => ({ ...current, dashboardUrl: event.target.value }))} placeholder="https://" /></label>
       </div>
       <button type="submit" disabled={busy}>{busy ? "Saving..." : "Add line"}</button>
@@ -811,7 +823,7 @@ function LineManagementPage({ lines, liveLines, busy, error, onAdd, onUpdate, on
           const status = getStatusConfig(getLineValue(liveLines[line.lineId], ["machine_mode", "mode", "status"], "offline"));
           return <details className="line-management-row" key={line.lineId} draggable={!busy} onDragStart={(event) => event.dataTransfer.setData("text/plain", line.lineId)} onDragOver={(event) => event.preventDefault()} onDrop={(event) => dropLine(event, site, line.lineId)}>
             <summary><span className="line-drag-handle" aria-hidden="true">⋮⋮</span><span className="line-management-row__identity"><strong>{line.name}</strong><small>{line.lineId} · {line.cardSize || "standard"} card · {LINE_STATE_LABELS[line.operationalState || "active"]}</small></span><span className="line-management-row__status" style={{ color: status.bg }}>{status.label}</span><span className="line-management-row__arrows"><button type="button" disabled={busy || index === 0} aria-label={`Move ${line.name} up`} onClick={(event) => { event.preventDefault(); const next = [...siteLines.map((item) => item.lineId)]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; onReorder(site, next); }}>↑</button><button type="button" disabled={busy || index === siteLines.length - 1} aria-label={`Move ${line.name} down`} onClick={(event) => { event.preventDefault(); const next = [...siteLines.map((item) => item.lineId)]; [next[index + 1], next[index]] = [next[index], next[index + 1]]; onReorder(site, next); }}>↓</button></span></summary>
-            <LineSettings key={`${line.lineId}:${line.name}:${line.site}:${line.dashboardUrl}:${line.cardSize}:${line.operationalState}:${line.stateNote}`} line={line} busy={busy} onUpdate={onUpdate} onRemove={onRemove} />
+            <LineSettings key={line.lineId} line={line} busy={busy} onUpdate={onUpdate} onRemove={onRemove} />
           </details>;
         })}</div>
         {siteLines.length === 0 && <p className="line-management-empty">No lines at this site yet.</p>}
@@ -1913,11 +1925,16 @@ function Dashboard({ user, onLogout }) {
   async function handleUpdateLine(lineId, line) {
     setAdminBusy(true);
     setLineManageError("");
+    const previous = lineConfigs.find((item) => item.lineId === lineId);
+    if (previous) setLineConfigs((current) => current.map((item) => item.lineId === lineId ? { ...item, ...line, lineId } : item));
     try {
-      await authenticatedRequest(`/admin/lines/${encodeURIComponent(lineId)}`, { method: "PATCH", body: JSON.stringify(line) });
-      await refreshLineConfigs();
+      const data = await authenticatedRequest(`/admin/lines/${encodeURIComponent(lineId)}`, { method: "PATCH", body: JSON.stringify(line) });
+      setLineConfigs((current) => current.map((item) => item.lineId === lineId ? data.line : item));
+      return data.line;
     } catch (error) {
+      if (previous) setLineConfigs((current) => current.map((item) => item.lineId === lineId ? previous : item));
       setLineManageError(error.message);
+      return false;
     } finally {
       setAdminBusy(false);
     }

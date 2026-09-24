@@ -1,7 +1,7 @@
 const { ProductionLine } = require('./class.js');
 
 const SITES = ['Port Klang', 'Sendayan'];
-const LINE_STATES = ['active', 'commissioning', 'maintenance'];
+const LINE_STATES = ['active', 'out_of_commission', 'maintenance'];
 const DEFAULT_LINES = [
     { lineId: 'ABB2', name: 'ABB2', site: 'Port Klang', dashboardUrl: 'https://abb2pkgrafana.sugidigital.org/d/adfnddq/abb2-smart-dashboard?orgId=1&from=now-5m&to=now&timezone=browser&refresh=5s' },
     { lineId: 'ABB4', name: 'ABB4', site: 'Port Klang', dashboardUrl: 'https://abb4grafana.sugidigital.org/d/fe9tzft54x1xcf/abb4-smart-dashboard?orgId=1&from=now-5m&to=now&timezone=browser&refresh=5s' },
@@ -11,13 +11,14 @@ const DEFAULT_LINES = [
     { lineId: 'SDY2', name: 'SDY2', site: 'Sendayan', dashboardUrl: 'https://l2sdygrafana.sugidigital.org/d/ad6zlmx/line-2-smart-dashboard?orgId=1&from=now-5m&to=now&timezone=browser&refresh=5s' },
 ];
 
-function validateLine(input) {
+function validateLine(input, { allowMissingReason = false } = {}) {
     const lineId = String(input?.lineId || '').trim().toUpperCase();
     const name = String(input?.name || '').trim();
     const site = String(input?.site || '').trim();
     const dashboardUrl = String(input?.dashboardUrl || '').trim();
     const cardSize = String(input?.cardSize || 'standard').trim();
-    const operationalState = String(input?.operationalState || 'active').trim().toLowerCase();
+    const requestedState = String(input?.operationalState || 'active').trim().toLowerCase();
+    const operationalState = requestedState === 'commissioning' ? 'out_of_commission' : requestedState;
     const stateNote = String(input?.stateNote || '').trim();
     if (!/^[A-Z0-9][A-Z0-9_-]{1,23}$/.test(lineId)) throw new Error('Line ID must be 2–24 letters, numbers, dashes or underscores.');
     if (!name || name.length > 80) throw new Error('Line name is required and must be 80 characters or fewer.');
@@ -25,6 +26,7 @@ function validateLine(input) {
     if (!['compact', 'standard', 'wide'].includes(cardSize)) throw new Error('Choose a valid card size.');
     if (!LINE_STATES.includes(operationalState)) throw new Error('Choose a valid line state.');
     if (stateNote.length > 240) throw new Error('Line state note must be 240 characters or fewer.');
+    if (operationalState !== 'active' && !stateNote && !allowMissingReason) throw new Error('Enter a reason for this line state.');
     if (dashboardUrl) {
         let parsed;
         try { parsed = new URL(dashboardUrl); } catch { throw new Error('Enter a valid dashboard URL.'); }
@@ -34,7 +36,7 @@ function validateLine(input) {
 }
 
 function fromRow(row) {
-    return { lineId: row.line_id, name: row.display_name, site: row.site, dashboardUrl: row.dashboard_url || '', cardSize: row.card_size || 'standard', operationalState: LINE_STATES.includes(row.operational_state) ? row.operational_state : 'active', stateNote: row.state_note || '', sortOrder: Number(row.sort_order) || 0 };
+    return { lineId: row.line_id, name: row.display_name, site: row.site, dashboardUrl: row.dashboard_url || '', cardSize: row.card_size || 'standard', operationalState: row.operational_state === 'commissioning' ? 'out_of_commission' : LINE_STATES.includes(row.operational_state) ? row.operational_state : 'active', stateNote: row.state_note || '', sortOrder: Number(row.sort_order) || 0 };
 }
 
 function createLineRegistry({ pool, hasDatabaseConfig }) {
@@ -64,6 +66,7 @@ function createLineRegistry({ pool, hasDatabaseConfig }) {
                 await pool.query('ALTER TABLE production_overview_lines ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0');
                 await pool.query("ALTER TABLE production_overview_lines ADD COLUMN IF NOT EXISTS operational_state VARCHAR(16) NOT NULL DEFAULT 'active'");
                 await pool.query("ALTER TABLE production_overview_lines ADD COLUMN IF NOT EXISTS state_note VARCHAR(240) NOT NULL DEFAULT ''");
+                await pool.query("UPDATE production_overview_lines SET operational_state = 'out_of_commission' WHERE operational_state = 'commissioning'");
                 for (const [index, line] of DEFAULT_LINES.entries()) {
                     await pool.query(`
                         INSERT INTO production_overview_lines (line_id, display_name, site, dashboard_url, sort_order)
@@ -116,7 +119,8 @@ function createLineRegistry({ pool, hasDatabaseConfig }) {
         await ensureLoaded();
         const previous = configs.get(lineId);
         if (!previous) throw new Error('Unknown line ID.');
-        const line = { ...validateLine({ ...previous, ...input, lineId }), sortOrder: previous.sortOrder };
+        const allowMissingReason = previous.operationalState !== 'active' && !previous.stateNote && input.operationalState === undefined && input.stateNote === undefined;
+        const line = { ...validateLine({ ...previous, ...input, lineId }, { allowMissingReason }), sortOrder: previous.sortOrder };
         if (line.site !== previous.site) line.sortOrder = Math.max(-1, ...list([line.site]).map((item) => item.sortOrder)) + 1;
         await pool.query(`
             UPDATE production_overview_lines SET display_name = $1, site = $2, dashboard_url = $3, card_size = $4, sort_order = $5, operational_state = $6, state_note = $7

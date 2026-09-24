@@ -59,7 +59,7 @@ function getBalanceDetail(value) {
 
 function WallboardLineCard({ lineId, line, config }) {
   const excluded = config?.operationalState && config.operationalState !== "active";
-  const stateLabel = config?.operationalState === "commissioning" ? "Commissioning" : "Under maintenance";
+  const stateLabel = config?.operationalState === "out_of_commission" ? "Out of commission" : "Under maintenance";
   const status = getStatus(line);
   const oee = getOee(line);
   const count = numberValue(lineValue(line, ["product_count", "count"]));
@@ -71,7 +71,7 @@ function WallboardLineCard({ lineId, line, config }) {
   const components = [["Availability", lineValue(line, ["availability_pct", "availability_pctm"])], ["Performance", lineValue(line, ["performance_pct"])], ["Quality", lineValue(line, ["quality_pct"])] ];
   return (
     <article className={`wall-line wall-line--${oeeTone(oee)} ${status.key === "offline" ? "is-offline" : ""} ${excluded ? "wall-line--excluded" : ""}`} style={{ "--line-status": status.color, "--line-progress": `${progress}%` }}>
-      {excluded && <div className="wall-line__admin-state"><strong>{stateLabel}</strong><span>Unverified · Excluded from totals</span>{config.stateNote && <small>{config.stateNote}</small>}</div>}
+      {excluded && <div className="wall-line__admin-state"><strong>{stateLabel}</strong><span>Unverified · Excluded from totals</span><small><b>Reason:</b> {config.stateNote || "Not recorded"}</small></div>}
       <div className="wall-line__head">
         <div className="wall-line__identity">
           <span className="wall-line__site">{config?.site || "Production"}</span>

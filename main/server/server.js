@@ -224,7 +224,7 @@ app.post('/admin/lines', auth.requireAdmin, async (req, res) => {
         io.emit('lines:changed');
         return res.status(201).json({ line });
     } catch (error) {
-        return res.status(/exists|Line ID|Line name|Choose|dashboard URL|Dashboard URL/.test(error.message) ? 400 : 500).json({ message: error.message });
+        return res.status(/exists|Line ID|Line name|Choose|dashboard URL|Dashboard URL|reason|state note/.test(error.message) ? 400 : 500).json({ message: error.message });
     }
 });
 app.patch('/admin/lines/order', auth.requireAdmin, async (req, res) => {
