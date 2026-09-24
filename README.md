@@ -134,12 +134,20 @@ mkdir -p backups
 docker compose --env-file main/server/.env -f compose.yaml -f compose.db.yaml exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > backups/production-$(date +%F).dump
 ```
 
-To update the app, keep `main/server/.env` and the named PostgreSQL volume, then run:
+### Pull and deploy later updates on the AI PC
+
+Run these commands **on the AI PC**, from the repository directory shown in your terminal (`/srv/apps/production-overview`). Adjust that path if you installed it elsewhere. The private `main/server/.env` file and the PostgreSQL Docker volume stay in place:
 
 ```bash
+cd /srv/apps/production-overview
+git status --short
 git pull --ff-only
-docker compose --env-file main/server/.env -f compose.yaml -f compose.db.yaml up -d --build
+docker compose --env-file main/server/.env -f compose.yaml -f compose.db.yaml up -d --build app
+docker compose --env-file main/server/.env -f compose.yaml -f compose.db.yaml ps
+curl http://127.0.0.1:3200/healthz
 ```
+
+If `git status --short` lists modified tracked files, review them before pulling; `git pull --ff-only` may refuse to overwrite local changes. After the health check, refresh the dashboard in your browser and confirm a line receives live updates. Compose rebuilds and replaces the app container and keeps the database container and its named volume. Node-RED can continue using the same AI PC API address and shared key.
 
 Never use `docker compose down -v` here: `-v` deletes the database volume. The base `compose.yaml` is for an **external PostgreSQL server**; use it alone only if you intentionally keep the database elsewhere and set `DB_HOST` to a host reachable from inside the app container. `localhost` inside the container means the container itself, not the Pi or AI PC. If PostgreSQL stays on the Pi, the Pi must remain powered on. The full migration above uses both Compose files so the AI PC can eventually replace the Pi.
 
