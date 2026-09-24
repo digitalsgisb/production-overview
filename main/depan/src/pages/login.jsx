@@ -105,7 +105,7 @@ function Login({ onLoginSuccess }) {
     <main className="login-wrap">
       <section className="login-shell" aria-label="Production overview login">
         <div className="login-brand-panel">
-          <img className="brand-logo-login" src="/sugihara-mark-white.png" alt="Sugihara Grand Industries" />
+          <img className="brand-logo-login" src="/sugihara-circle-logo.png" alt="Sugihara Grand Industries" />
           <p className="login-eyebrow">Live control room</p>
           <h1>Production Overview</h1>
           <div className="login-site-list" aria-label="Monitored sites">
@@ -117,7 +117,7 @@ function Login({ onLoginSuccess }) {
 
         <section className="login-card" aria-label="Login">
           <div className="login-logo">
-            <span className="login-logo__mark"><img src="/sugihara-mark-white.png" alt="" /></span>
+            <span className="login-logo__mark"><img src="/sugihara-circle-logo.png" alt="" /></span>
             <div>
               <p className="login-logo__eyebrow">Authorized access</p>
               <div className="login-logo__text">Control Room Sign In</div>
