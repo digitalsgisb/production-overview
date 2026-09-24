@@ -80,7 +80,7 @@ async function loadPublicSettings() {
   return data;
 }
 
-function Sidebar({ activePage, adminOpen, isAdmin, isGuest, onSelectPage, onManageAccounts, onLogout, isMobileNavOpen, onCloseMobileNav, sites = [] }) {
+function Sidebar({ activePage, adminOpen, isAdmin, isGuest, onSelectPage, onManageAccounts, onLogout, isMobileNavOpen, onCloseMobileNav, onOpenMobileNav, sites = [] }) {
   function handleSelectPage(page) {
     if (page !== activePage && window.matchMedia("(max-width: 767px)").matches) {
       window.scrollTo(0, 0);
@@ -98,7 +98,8 @@ function Sidebar({ activePage, adminOpen, isAdmin, isGuest, onSelectPage, onMana
   }
 
   return (
-    <aside className={`sidebar ${isMobileNavOpen ? "is-mobile-open" : ""}`} aria-label="Main navigation">
+    <>
+    <aside id="mobile-more-menu" className={`sidebar ${isMobileNavOpen ? "is-mobile-open" : ""}`} aria-label="Main navigation">
       <div className="sidebar__group sidebar__group--top">
         <div className="sidebar-brand">
           <img src="/sugihara-circle-logo.png" alt="Sugihara Grand Industries" />
@@ -107,6 +108,7 @@ function Sidebar({ activePage, adminOpen, isAdmin, isGuest, onSelectPage, onMana
             <span>Live control room</span>
           </div>
         </div>
+        <button className="sidebar-close" type="button" aria-label="Close menu" onClick={onCloseMobileNav}>×</button>
       </div>
 
       <nav className="sidebar__group sidebar__group--middle" aria-label="Primary">
@@ -171,6 +173,12 @@ function Sidebar({ activePage, adminOpen, isAdmin, isGuest, onSelectPage, onMana
 
         {isAdmin && <button className={`icon-btn nav-btn sidebar-admin-link ${adminOpen ? "is-active" : ""}`} type="button" aria-label="Manage accounts and access" aria-pressed={adminOpen} onClick={onManageAccounts}><PersonIcon /><span className="icon-btn__tip">Accounts</span></button>}
 
+        <button className="icon-btn nav-btn sidebar-tv-link" type="button" onClick={() => window.location.assign("/wallboard")}
+          aria-label="Open TV display">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M8 21h8M12 17v4" /></svg>
+          <span className="icon-btn__tip">TV display</span>
+        </button>
+
       </nav>
 
       <div className="sidebar-sites" aria-label="Active sites">
@@ -201,6 +209,24 @@ function Sidebar({ activePage, adminOpen, isAdmin, isGuest, onSelectPage, onMana
         </button>
       </div>
     </aside>
+    <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
+      <button className={`mobile-bottom-nav__button ${activePage === "progress" && !isMobileNavOpen ? "is-active" : ""}`} type="button" onClick={() => handleSelectPage("progress")} aria-label="Progress" aria-current={activePage === "progress" ? "page" : undefined}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 3v18h18" /><path d="M18.7 8 13 13.7l-3-3L4 17.6" /></svg><span>Progress</span>
+      </button>
+      {isAdmin && <button className={`mobile-bottom-nav__button ${activePage === "lines" && !isMobileNavOpen ? "is-active" : ""}`} type="button" onClick={() => handleSelectPage("lines")} aria-label="Lines" aria-current={activePage === "lines" ? "page" : undefined}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="9" width="5" height="11" rx="1" /><rect x="10" y="4" width="5" height="16" rx="1" /><rect x="17" y="12" width="4" height="8" rx="1" /></svg><span>Lines</span>
+      </button>}
+      {isGuest ? <>
+        <button className="mobile-bottom-nav__button" type="button" onClick={() => handleGuestSite("site-klang")} aria-label="Jump to Port Klang"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 20V8l8-4 8 4v12" /><path d="M8 20v-5h8v5" /></svg><span>Klang</span></button>
+        <button className="mobile-bottom-nav__button" type="button" onClick={() => handleGuestSite("site-sendayan")} aria-label="Jump to Sendayan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 21h18" /><path d="M6 21V9l6-4 6 4v12" /><path d="M9 13h6" /></svg><span>Sendayan</span></button>
+      </> : <button className={`mobile-bottom-nav__button ${activePage === "attendance" && !isMobileNavOpen ? "is-active" : ""}`} type="button" onClick={() => handleSelectPage("attendance")} aria-label="Attendance" aria-current={activePage === "attendance" ? "page" : undefined}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M8 2v4M16 2v4M3 10h18" /></svg><span>Attendance</span>
+      </button>}
+      <button className={`mobile-bottom-nav__button ${isMobileNavOpen || activePage === "history" ? "is-active" : ""}`} type="button" onClick={onOpenMobileNav} aria-label="More" aria-expanded={isMobileNavOpen} aria-controls="mobile-more-menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg><span>More</span>
+      </button>
+    </nav>
+    </>
   );
 }
 
@@ -1503,20 +1529,6 @@ function MobileHeader({ adminOpen, displayName, isAdmin, isGuest, onOpenAdmin, o
         </span>
       </button>
 
-      <button
-        className="mobile-header__icon mobile-header__wallboard"
-        type="button"
-        aria-label="Open TV wallboard"
-        title="Wallboard"
-        onClick={() => window.location.assign("/wallboard")}
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <rect x="3" y="4" width="18" height="13" rx="2"></rect>
-          <path d="M8 21h8M12 17v4"></path>
-        </svg>
-        <span>TV</span>
-      </button>
-
       {isAdmin && (
         <button
           className={`mobile-header__icon ${adminOpen ? "is-active" : ""}`}
@@ -1663,6 +1675,20 @@ function Dashboard({ user, onLogout }) {
   const [selectedLineId, setSelectedLineId] = useState(null);
   const [telemetryHistory, setTelemetryHistory] = useState({ overall: [], lines: {} });
   const previousPage = useRef(activePage);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setMobileNavOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [mobileNavOpen]);
 
   useLayoutEffect(() => {
     if (previousPage.current === activePage) return;
@@ -2007,6 +2033,7 @@ function Dashboard({ user, onLogout }) {
         onLogout={handleLogout}
         isMobileNavOpen={mobileNavOpen}
         onCloseMobileNav={() => setMobileNavOpen(false)}
+        onOpenMobileNav={() => setMobileNavOpen(true)}
         sites={siteSummaries}
       />
       <button

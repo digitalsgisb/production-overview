@@ -226,6 +226,12 @@ button {
   display: none;
 }
 
+.sidebar-close,
+.sidebar-tv-link,
+.mobile-bottom-nav {
+  display: none;
+}
+
 .icon-btn {
   position: relative;
   width: 100%;
@@ -3224,6 +3230,20 @@ button {
 }
 
 @media (max-width: 767px) {
+  html,
+  body {
+    width: 100%;
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+    touch-action: pan-y;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
   :root {
     --sidebar-w: 0px;
     --bg-shell: #080b13;
@@ -3253,63 +3273,194 @@ button {
 
   .sidebar {
     position: fixed;
-    inset: auto 10px 10px;
-    z-index: 70;
-    width: auto;
-    min-height: 68px;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: 8px;
-    border: 1px solid rgba(174, 167, 216, 0.16);
-    border-radius: 8px;
-    background: rgba(8, 9, 17, 0.94);
+    inset: 0 auto 0 0;
+    z-index: 90;
+    width: min(320px, 86vw);
+    height: 100dvh;
+    min-height: 0;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 16px;
+    overflow-y: auto;
+    padding: calc(22px + env(safe-area-inset-top)) 18px calc(22px + env(safe-area-inset-bottom));
+    border: 0;
+    border-right: 1px solid rgba(174, 167, 216, 0.16);
+    border-radius: 0 14px 14px 0;
+    background: #0c101b;
     backdrop-filter: blur(18px);
+    transform: translateX(-105%);
+    visibility: hidden;
+    transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1), visibility 280ms;
   }
 
-  .sidebar__group--top,
-  .sidebar-sites,
-  .sidebar-dtu,
-  .mobile-nav-backdrop {
-    display: none;
+  .sidebar.is-mobile-open {
+    transform: translateX(0);
+    visibility: visible;
+  }
+
+  .sidebar__group--top {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
   }
 
   .sidebar__group,
   .sidebar__group--middle,
   .sidebar__group--bottom {
-    width: auto;
-    flex: initial;
-    flex-direction: row;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .nav-btn,
-  .icon-btn--logout {
-    width: clamp(60px, 22vw, 86px);
-    min-height: 52px;
+    width: 100%;
+    flex: none;
     flex-direction: column;
-    justify-content: center;
-    gap: 5px;
-    padding: 6px;
+    align-items: stretch;
+    gap: 6px;
   }
 
-  .icon-btn__tip {
+  .sidebar-brand {
+    min-width: 0;
+  }
+
+  .sidebar-brand div {
     display: block;
-    max-width: 68px;
+  }
+
+  .sidebar-close {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    flex: none;
+    place-items: center;
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    background: var(--bg-panel-soft);
+    color: var(--text-primary);
+    font-size: 24px;
+    cursor: pointer;
+  }
+
+  .sidebar .nav-btn,
+  .sidebar .icon-btn--logout {
+    width: 100%;
+    min-height: 46px;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 0 12px;
+  }
+
+  .sidebar .icon-btn__tip {
+    display: block;
+    max-width: none;
     overflow: hidden;
     color: inherit;
-    font-size: 10px;
-    font-weight: 800;
-    line-height: 1;
+    font-size: 14px;
+    font-weight: 750;
+    line-height: 1.2;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .icon-btn svg {
+  .sidebar .icon-btn svg {
     width: 20px;
     height: 20px;
+  }
+
+  .sidebar-tv-link,
+  .sidebar-sites,
+  .sidebar-dtu {
+    display: block;
+  }
+
+  .sidebar-tv-link,
+  .sidebar-admin-link {
+    display: flex;
+  }
+
+  .sidebar__group--bottom {
+    margin-top: auto;
+  }
+
+  .mobile-nav-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 85;
+    display: block;
+    border: 0;
+    background: rgba(3, 6, 14, 0.66);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 250ms ease, visibility 250ms;
+  }
+
+  .mobile-nav-backdrop.is-visible {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  .mobile-bottom-nav {
+    position: fixed;
+    inset: auto 8px calc(8px + env(safe-area-inset-bottom));
+    z-index: 70;
+    display: flex;
+    gap: 4px;
+    padding: 7px;
+    border: 1px solid rgba(174, 167, 216, 0.16);
+    border-radius: 10px;
+    background: rgba(8, 9, 17, 0.96);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.32);
+    backdrop-filter: blur(18px);
+  }
+
+  .mobile-bottom-nav__button {
+    min-width: 0;
+    min-height: 54px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 5px 2px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background-color 220ms ease, border-color 220ms ease, color 220ms ease, transform 220ms ease;
+  }
+
+  .mobile-bottom-nav__button svg {
+    width: 21px;
+    height: 21px;
+    flex: none;
+  }
+
+  .mobile-bottom-nav__button span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-bottom-nav__button.is-active {
+    border-color: rgba(79, 140, 255, 0.3);
+    background: rgba(79, 140, 255, 0.15);
+    color: var(--text-primary);
+  }
+
+  .mobile-bottom-nav__button:active {
+    transform: scale(0.96);
+  }
+
+  .mobile-bottom-nav__button:focus-visible,
+  .sidebar-close:focus-visible {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 2px;
   }
 
   .nav-btn.is-active {
@@ -3327,11 +3478,11 @@ button {
   }
 
   .nav-btn.is-active::before {
-    top: 6px;
-    left: 50%;
-    width: 28px;
-    height: 3px;
-    transform: translateX(-50%);
+    top: 50%;
+    left: 0;
+    width: 3px;
+    height: 24px;
+    transform: translateY(-50%);
     background: var(--accent-violet);
   }
 
@@ -3348,7 +3499,7 @@ button {
     right: 0;
     z-index: 80;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 52px;
+    grid-template-columns: minmax(0, 1fr);
     align-items: center;
     gap: 10px;
     min-height: calc(78px + env(safe-area-inset-top));
@@ -3365,11 +3516,11 @@ button {
   }
 
   .mobile-header--guest {
-    grid-template-columns: minmax(0, 1fr) 52px;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .mobile-header--admin {
-    grid-template-columns: minmax(0, 1fr) 52px 52px;
+    grid-template-columns: minmax(0, 1fr) 52px;
   }
 
   .mobile-header button {
