@@ -8,6 +8,8 @@ const { Server } = require('socket.io');
 const cors = require("cors");
 const { Pool } = require('pg');
 const { createAuthRouter } = require("./auth.js");
+const { createProductionSummaries, parseShiftTarget, recordedOee } = require("./production-summaries");
+const { createProductionAi } = require("./production-ai");
 require('dotenv').config();
 
 const app = express();
@@ -60,6 +62,14 @@ const hasDatabaseConfig = Boolean(
     process.env.DB_PORT
 );
 const lineRegistry = createLineRegistry({ pool, hasDatabaseConfig });
+const productionAiEnabled = process.env.PRODUCTION_AI_ENABLED === "true" && hasDatabaseConfig;
+const productionSummaries = productionAiEnabled ? createProductionSummaries({ pool }) : null;
+const productionAi = createProductionAi({
+    enabled: productionAiEnabled,
+    baseUrl: process.env.OLLAMA_BASE_URL,
+    model: process.env.OLLAMA_MODEL,
+    getSummary: productionSummaries?.getSummary,
+});
 const { productionLines } = lineRegistry;
 const localAdmin = {
     enabled: process.env.ENABLE_LOCAL_ADMIN === "true",
@@ -75,6 +85,7 @@ const auth = createAuthRouter({
     pool,
     hasDatabaseConfig,
     localAdmin,
+    productionAiEnabled,
     onGuestAccessChanged: (enabled) => {
         if (enabled) return;
 
@@ -203,6 +214,7 @@ io.on('connection', (socket) => {
 
 app.post("/login", auth.login);
 app.get("/settings/public", auth.getPublicSettings);
+app.post("/api/production-ai/chat", auth.requireSession, productionAi.chat);
 app.post("/guest-session", auth.createGuestSession);
 app.get("/admin/guest-invite", auth.requireAdmin, auth.getGuestInvite);
 app.get("/admin/users", auth.requireAdmin, auth.listUsers);
@@ -315,10 +327,23 @@ app.post('/start-session-', async (req, res) => {
         return res.status(404).json({ success: false, error: `Unknown line_id ${line_id}` });
     }
 
+    let target;
+    try {
+        target = parseShiftTarget(req.body.shift_target_units);
+    } catch (error) {
+        return res.status(400).json({ success: false, error: error.message });
+    }
+
     let session_id, runtime_id;
 
     try {
-        session_id = await getSession(line_id);
+        let analytics;
+        if (productionSummaries) {
+            const config = lineRegistry.configs.get(line_id);
+            await productionSummaries.ensureSchema();
+            analytics = { site: config.site, eligible: config.operationalState === "active", target };
+        }
+        session_id = await getSession(line_id, analytics);
     } catch (err) {
         return res.status(400).json({ success: false, error: err.message});
     }
@@ -405,6 +430,7 @@ app.post('/update_product_count', async (req, res) => {
         const effectivePerformance = performance_pct !== null ? performance_pct : Number(line.performance_pct) || 0;
         const effectiveQuality = quality_pct !== null ? quality_pct : Number(line.quality_pct) || 0;
         const oee = calculateOeeFromComponents(oeeInput, effectiveAvailability, effectivePerformance, effectiveQuality);
+        const analyticsOee = productionSummaries ? recordedOee(data) : null;
 
         await pool.query(
             `
@@ -415,9 +441,11 @@ app.post('/update_product_count', async (req, res) => {
                 availability_pct = COALESCE($3, availability_pct),
                 quality_pct = COALESCE($4, quality_pct),
                 performance_pct = COALESCE($5, performance_pct)
+                ${analyticsOee === null ? "" : ", analytics_oee_pct = $7"}
             WHERE session_id = $6
             `,
-            [productCount, oee, availability_pct, quality_pct, performance_pct, session_id]
+            [productCount, oee, availability_pct, quality_pct, performance_pct, session_id,
+                ...(analyticsOee === null ? [] : [analyticsOee])]
         );
 
         if (mode !== null) {
@@ -496,6 +524,7 @@ app.post('/oee_update', async (req,res) => {
         const effectivePerformance = performance_pct !== null ? performance_pct : Number(line.performance_pct) || 0;
         const effectiveQuality = quality_pct !== null ? quality_pct : Number(line.quality_pct) || 0;
         const oee = calculateOeeFromComponents(oeeInput, effectiveAvailability, effectivePerformance, effectiveQuality);
+        const analyticsOee = productionSummaries ? recordedOee(data) : null;
 
         await pool.query(
             `
@@ -505,9 +534,11 @@ app.post('/oee_update', async (req,res) => {
                 availability_pct = COALESCE($2, availability_pct),
                 quality_pct = COALESCE($3, quality_pct),
                 performance_pct = COALESCE($4, performance_pct)
+                ${analyticsOee === null ? "" : ", analytics_oee_pct = $6"}
             WHERE session_id = $5
             `,
-            [oee, availability_pct, quality_pct, performance_pct, session_id]
+            [oee, availability_pct, quality_pct, performance_pct, session_id,
+                ...(analyticsOee === null ? [] : [analyticsOee])]
         );
 
         if (oee !== null) line.oee = oee;
@@ -836,13 +867,14 @@ app.post('/endShift', async (req,res) => {
     const line = productionLines.get(data.line_id);
     const session_id = line.session_id;
     try {
-        await pool.query(
+        const { rowCount } = await pool.query(
             `
             UPDATE session
             SET end_time = $1
             WHERE session_id = $2
             `,[data.timestamp,session_id]
         )
+        if (rowCount && data.timestamp != null) productionSummaries?.requestRefresh();
         line.resetValue();
 
         // emitLineUpdate(data.line_id);
@@ -900,3 +932,4 @@ app.post('/testtry', async (req, res) => {
 
 
 server.listen(PORT, () => console.log(`API + WebSocket listening on port ${PORT}`));
+productionSummaries?.start();

@@ -11,29 +11,35 @@ const pool = new Pool ({
     port:Number(process.env.DB_PORT)
 })
 
-async function getSession(subject){
+async function getSession(subject, analytics){
     const now = new Date();
     const date = now.toLocaleDateString('en-GB');
     const time = now.toLocaleTimeString('en-GB');
 
-    let result = await pool.query(
-        `
-        INSERT INTO session(line_id, start_time,date)
-        VALUES ($1,$2,$3) RETURNING session_id
-        `,[subject, time, date]
-    )
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const result = analytics
+            ? await client.query(`
+                INSERT INTO session (line_id, start_time, date, analytics_day, analytics_site, analytics_eligible, analytics_target_units)
+                VALUES ($1, $2, $3, (transaction_timestamp() AT TIME ZONE 'Asia/Kuala_Lumpur')::date, $4, $5, $6)
+                RETURNING session_id
+            `, [subject, time, date, analytics.site, analytics.eligible, analytics.target])
+            : await client.query(`
+                INSERT INTO session (line_id, start_time, date)
+                VALUES ($1, $2, $3) RETURNING session_id
+            `, [subject, time, date]);
 
-    let session_id = result.rows[0].session_id
-    //set into the object directly, same with runtime, hehe
-    await pool.query(
-    `
-    INSERT INTO reject(session_id, product_reject)
-    VALUES ($1, 0)
-    `,
-    [session_id]
-);
-
-    return session_id;
+        const { session_id } = result.rows[0];
+        await client.query('INSERT INTO reject (session_id, product_reject) VALUES ($1, 0)', [session_id]);
+        await client.query('COMMIT');
+        return session_id;
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
+    }
 }
 
 async function getRuntime(subject){

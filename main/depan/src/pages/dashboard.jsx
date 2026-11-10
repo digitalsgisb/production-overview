@@ -14,6 +14,7 @@ import {
 import { io } from "socket.io-client";
 import { QRCodeSVG } from "qrcode.react";
 import LineCard from "./linecard.jsx";
+import ProductionAi from "./production-ai.jsx";
 import "./dashboard.css";
 
 const DEFAULT_API_URL = import.meta.env.DEV
@@ -81,7 +82,7 @@ async function loadPublicSettings() {
   return data;
 }
 
-function Sidebar({ activePage, adminOpen, isAdmin, isGuest, onSelectPage, onManageAccounts, onLogout, isMobileNavOpen, onCloseMobileNav, onOpenMobileNav, sites = [] }) {
+function Sidebar({ activePage, adminOpen, isAdmin, isGuest, productionAiEnabled, onSelectPage, onManageAccounts, onLogout, isMobileNavOpen, onCloseMobileNav, onOpenMobileNav, sites = [] }) {
   function handleSelectPage(page) {
     if (page !== activePage && window.matchMedia("(max-width: 767px)").matches) {
       window.scrollTo(0, 0);
@@ -174,6 +175,12 @@ function Sidebar({ activePage, adminOpen, isAdmin, isGuest, onSelectPage, onMana
           </button>
         ))}
 
+        {!isGuest && productionAiEnabled && (
+          <button className={`icon-btn nav-btn ${activePage === "production-ai" ? "is-active" : ""}`} type="button" aria-label="Production AI" aria-current={activePage === "production-ai" ? "page" : undefined} onClick={() => handleSelectPage("production-ai")}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-8 8H5l1.7-3.5A8 8 0 1 1 21 12Z" /><path d="M9 12h.01M13 12h.01M17 12h.01" /></svg>
+            <span className="icon-btn__tip">Production AI</span>
+          </button>
+        )}
         {isAdmin && <button className={`icon-btn nav-btn sidebar-admin-link ${adminOpen ? "is-active" : ""}`} type="button" aria-label="Manage accounts and access" aria-pressed={adminOpen} onClick={onManageAccounts}><PersonIcon /><span className="icon-btn__tip">Accounts</span></button>}
 
         <button className="icon-btn nav-btn sidebar-tv-link" type="button" onClick={() => window.location.assign("/wallboard")}
@@ -225,7 +232,7 @@ function Sidebar({ activePage, adminOpen, isAdmin, isGuest, onSelectPage, onMana
       </> : <button className={`mobile-bottom-nav__button ${activePage === "attendance" && !isMobileNavOpen ? "is-active" : ""}`} type="button" onClick={() => handleSelectPage("attendance")} aria-label="Attendance" aria-current={activePage === "attendance" ? "page" : undefined}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M8 2v4M16 2v4M3 10h18" /></svg><span>Attendance</span>
       </button>}
-      <button className={`mobile-bottom-nav__button ${isMobileNavOpen || activePage === "history" ? "is-active" : ""}`} type="button" onClick={onOpenMobileNav} aria-label="More" aria-expanded={isMobileNavOpen} aria-controls="mobile-more-menu">
+      <button className={`mobile-bottom-nav__button ${isMobileNavOpen || activePage === "history" || activePage === "production-ai" ? "is-active" : ""}`} type="button" onClick={onOpenMobileNav} aria-label="More" aria-expanded={isMobileNavOpen} aria-controls="mobile-more-menu">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg><span>More</span>
       </button>
     </nav>
@@ -295,8 +302,17 @@ const STATUS_CONFIG = {
   offline: { label: "Offline", bg: "#667386", fg: "#ffffff" },
 };
 
+function getStatusKey(status) {
+  return String(status || "offline").trim().toLowerCase().replace(/[\s-]+/g, "_");
+}
+
+function isRunningLine(line) {
+  const status = getStatusKey(getLineValue(line, ["machine_mode", "mode", "status"], "offline"));
+  return status === "normal" || status === "running";
+}
+
 function getStatusConfig(status) {
-  const key = String(status || "offline").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const key = getStatusKey(status);
   return STATUS_CONFIG[key] || {
     label: status || "Unknown",
     bg: "#596677",
@@ -1250,18 +1266,48 @@ function createFallbackLine(lineId) {
   };
 }
 
-function ProductionSection({ id, title, lineIds, lines, configs, onSelectLine, onReorder, onResize, editingLayout = false, readOnly = false }) {
-  const sectionLines = lineIds.filter((lineId) => isActiveLine(configs.find((item) => item.lineId === lineId))).map((lineId) => lines[lineId] ?? createFallbackLine(lineId));
-  const runningCount = sectionLines.filter((line) => {
-    const status = String(getLineValue(line, ["machine_mode", "mode", "status"], "offline"))
-      .trim()
-      .toLowerCase()
-      .replace(/[\s-]+/g, "_");
-    return status === "normal" || status === "running";
-  }).length;
+function LineFilters({ query, status, onQueryChange, onStatusChange, disabled }) {
+  return (
+    <section className="line-filters" aria-label="Filter production lines">
+      <div className="line-filters__intro">
+        <h2>Find a line</h2>
+        <p>{disabled ? "Finish arranging to use filters." : "Site totals include all active lines."}</p>
+      </div>
+      <label>
+        Search lines
+        <input type="search" placeholder="Line ID, name, or model" value={query} disabled={disabled} onChange={(event) => onQueryChange(event.target.value)} />
+      </label>
+      <label>
+        Line status
+        <select value={status} disabled={disabled} onChange={(event) => onStatusChange(event.target.value)}>
+          <option value="all">All lines</option>
+          <option value="running">Running</option>
+          <option value="other">Active, not running</option>
+          <option value="excluded">Excluded from totals</option>
+        </select>
+      </label>
+    </section>
+  );
+}
+
+function ProductionSection({ id, title, lineIds, lines, configs, filters, onSelectLine, onReorder, onResize, editingLayout = false, readOnly = false }) {
+  const entries = lineIds.map((lineId) => {
+    const config = configs.find((item) => item.lineId === lineId);
+    const line = lines[lineId] ?? createFallbackLine(lineId);
+    const group = isActiveLine(config) ? (isRunningLine(line) ? "running" : "other") : "excluded";
+    return { lineId, config, line, group };
+  });
+  const sectionLines = entries.filter(({ group }) => group !== "excluded").map(({ line }) => line);
+  const runningCount = entries.filter(({ group }) => group === "running").length;
   const actual = sectionLines.reduce((sum, line) => sum + getNumber(getLineMetric(line, ["product_count", "count"])), 0);
   const target = sectionLines.reduce((sum, line) => sum + getNumber(getLineMetric(line, ["target", "hourly_plan"])), 0);
   const sectionProgress = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 0;
+  const { query, status } = filters;
+  const filtering = !editingLayout && (query !== "" || status !== "all");
+  const shownEntries = filtering ? entries.filter(({ lineId, config, line, group }) => {
+    if (status !== "all" && status !== group) return false;
+    return !query || [lineId, config?.name, line.model].some((value) => String(value ?? "").toLowerCase().includes(query));
+  }) : entries;
 
   return (
     <section className="plant-section" id={id}>
@@ -1276,9 +1322,15 @@ function ProductionSection({ id, title, lineIds, lines, configs, onSelectLine, o
           <span>{sectionProgress}%</span>
         </div>
       </div>
+      {filtering && (
+        <p className="line-filter-results" role="status">
+          {shownEntries.length > 0
+            ? `Showing ${shownEntries.length} of ${lineIds.length} lines in ${title}`
+            : `No lines in ${title} match these filters.`}
+        </p>
+      )}
       <div className="line-grid">
-        {lineIds.map((lineId) => {
-          const config = configs.find((item) => item.lineId === lineId);
+        {shownEntries.map(({ lineId, config, line }) => {
           return <div className={`line-grid-item line-grid-item--${config?.cardSize || "standard"} ${editingLayout ? "is-editing" : ""}`} key={lineId} draggable={editingLayout}
             onDragStart={(event) => event.dataTransfer.setData("text/plain", lineId)}
             onDragOver={(event) => { if (editingLayout) event.preventDefault(); }}
@@ -1296,7 +1348,7 @@ function ProductionSection({ id, title, lineIds, lines, configs, onSelectLine, o
             displayName={config?.name}
             operationalState={config?.operationalState}
             stateNote={config?.stateNote}
-            line={lines[lineId] ?? createFallbackLine(lineId)}
+            line={line}
             onSelectLine={onSelectLine}
             readOnly={readOnly}
           />
@@ -1704,6 +1756,9 @@ function Dashboard({ user, onLogout }) {
   const [clockNow, setClockNow] = useState(0);
   const [activePage, setActivePage] = useState("progress");
   const [editingLayout, setEditingLayout] = useState(false);
+  const [lineQuery, setLineQuery] = useState("");
+  const [lineStatus, setLineStatus] = useState("all");
+  const lineFilters = { query: lineQuery.trim().toLowerCase(), status: lineStatus };
   const [profileOpen, setProfileOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [adminUsers, setAdminUsers] = useState([]);
@@ -1711,6 +1766,7 @@ function Dashboard({ user, onLogout }) {
   const [adminError, setAdminError] = useState("");
   const [lineManageError, setLineManageError] = useState("");
   const [guestAccessEnabled, setGuestAccessEnabled] = useState(false);
+  const [productionAiEnabled, setProductionAiEnabled] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [selectedLineId, setSelectedLineId] = useState(null);
   const [telemetryHistory, setTelemetryHistory] = useState({ overall: [], lines: {} });
@@ -1811,10 +1867,18 @@ function Dashboard({ user, onLogout }) {
   }, [telemetrySample]);
 
   useEffect(() => {
-    if (!isAdmin) return undefined;
+    if (isGuest) return undefined;
 
     let cancelled = false;
-    Promise.all([adminRequest(), loadPublicSettings()])
+    const settingsRequest = loadPublicSettings().then((settings) => {
+      if (!cancelled) setProductionAiEnabled(settings.productionAiEnabled === true);
+      return settings;
+    });
+    if (!isAdmin) {
+      settingsRequest.catch(() => {});
+      return () => { cancelled = true; };
+    }
+    Promise.all([adminRequest(), settingsRequest])
       .then(([userData, settings]) => {
         if (!cancelled) {
           setAdminUsers(userData.users || []);
@@ -1831,7 +1895,7 @@ function Dashboard({ user, onLogout }) {
     return () => {
       cancelled = true;
     };
-  }, [isAdmin]);
+  }, [isAdmin, isGuest]);
 
   useEffect(() => {
     const sampleTelemetry = () => {
@@ -1848,14 +1912,7 @@ function Dashboard({ user, onLogout }) {
 
   const displayName = user?.name || user?.username || "User";
   const focusLineId = useMemo(() => {
-    const runningLine = activeLineIds.find((lineId) => {
-      const status = String(getLineValue(seededLines[lineId], ["machine_mode", "mode", "status"], "offline"))
-        .trim()
-        .toLowerCase()
-        .replace(/[\s-]+/g, "_");
-
-      return status === "normal" || status === "running";
-    });
+    const runningLine = activeLineIds.find((lineId) => isRunningLine(seededLines[lineId]));
 
     return runningLine || activeLineIds[0];
   }, [seededLines, activeLineIds]);
@@ -2068,6 +2125,7 @@ function Dashboard({ user, onLogout }) {
         adminOpen={adminOpen}
         isAdmin={isAdmin}
         isGuest={isGuest}
+        productionAiEnabled={productionAiEnabled}
         onSelectPage={setActivePage}
         onManageAccounts={handleToggleAdmin}
         onLogout={handleLogout}
@@ -2119,7 +2177,7 @@ function Dashboard({ user, onLogout }) {
         />
 
         <header className="dashboard-topbar">
-          <div className="topbar-breadcrumb"><span>Operations</span><span aria-hidden="true">›</span><strong>{activePage === "progress" ? "Live progress" : activePage === "lines" ? "Production lines" : activePage[0].toUpperCase() + activePage.slice(1)}</strong></div>
+          <div className="topbar-breadcrumb"><span>Operations</span><span aria-hidden="true">›</span><strong>{activePage === "progress" ? "Live progress" : activePage === "lines" ? "Production lines" : activePage === "production-ai" ? "Production AI" : activePage[0].toUpperCase() + activePage.slice(1)}</strong></div>
           <div className="topbar-actions">
             <span className="topbar-site">{visibleSites.join(" · ")}</span>
             <time className="topbar-date" dateTime={new Date().toISOString().slice(0, 10)}>{new Date().toLocaleDateString("en-MY", { weekday: "short", day: "numeric", month: "short" })}</time>
@@ -2152,7 +2210,7 @@ function Dashboard({ user, onLogout }) {
           </div>
         </header>
 
-        <div className="dashboard-page" key={activePage}>
+        <div className="dashboard-page" key={activePage} hidden={activePage === "production-ai"}>
         {activePage === "progress" && (
           <>
             <div className={`live-feed-status ${feedConnected ? "is-connected" : ""}`} role="status">
@@ -2207,12 +2265,15 @@ function Dashboard({ user, onLogout }) {
               />
             )}
 
+            <LineFilters query={lineQuery} status={lineStatus} onQueryChange={setLineQuery} onStatusChange={setLineStatus} disabled={isAdmin && editingLayout} />
+
             {visibleSites.includes("Port Klang") && <ProductionSection
               id="site-klang"
               title="Port Klang"
               lineIds={siteLineIds("Port Klang")}
               lines={seededLines}
               configs={lineConfigs}
+              filters={lineFilters}
               onSelectLine={setSelectedLineId}
               onReorder={handleReorderLines}
               onResize={handleUpdateLine}
@@ -2225,6 +2286,7 @@ function Dashboard({ user, onLogout }) {
               lineIds={siteLineIds("Sendayan")}
               lines={seededLines}
               configs={lineConfigs}
+              filters={lineFilters}
               onSelectLine={setSelectedLineId}
               onReorder={handleReorderLines}
               onResize={handleUpdateLine}
@@ -2244,6 +2306,11 @@ function Dashboard({ user, onLogout }) {
         {activePage === "attendance" && <PlaceholderPage title="Attendance" />}
         {activePage === "history" && <PlaceholderPage title="History" />}
         </div>
+        {!isGuest && productionAiEnabled && (
+          <div className="dashboard-page" hidden={activePage !== "production-ai"}>
+            <ProductionAi request={authenticatedRequest} />
+          </div>
+        )}
 
         <footer className="dashboard-footer">
           <span>© Digital Transformation Unit</span>

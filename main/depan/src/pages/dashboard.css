@@ -1402,6 +1402,72 @@ button {
   white-space: nowrap;
 }
 
+.line-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px 16px;
+  margin: 0 0 20px;
+  padding: 14px 16px;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: var(--bg-panel);
+  color-scheme: dark;
+}
+
+.line-filters__intro {
+  flex: 1 0 190px;
+}
+
+.line-filters__intro h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.line-filters__intro p,
+.line-filter-results {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.line-filters label {
+  display: grid;
+  flex: 1 1 180px;
+  min-width: 0;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.line-filters input,
+.line-filters select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--card-border-strong);
+  border-radius: 8px;
+  background: var(--bg-panel-raised);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 16px;
+}
+
+.line-filters :is(input, select):focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 2px;
+}
+
+.line-filters :is(input, select):disabled {
+  opacity: 0.55;
+}
+
+.line-filter-results {
+  margin-bottom: 12px;
+}
+
 .plant-section + .plant-section {
   margin-top: 30px;
 }

@@ -2,6 +2,8 @@
 
 Live mobile and desktop monitoring for Port Klang and Sendayan. Node-RED sends line events to the API; browsers receive updates over Socket.IO. Admins manage lines from the **Lines** page beside **Progress**. Attendance and History are still placeholders.
 
+[Production AI setup](docs/production-ai.md) covers enabling the staff chat, connecting to Ollama on the AI PC, and importing verified shift history.
+
 Admins can set each line to **Active**, **Out of commission**, or **Maintenance** in **Lines**. A reason is required for either excluded state and appears on the line card. Excluded lines keep receiving Node-RED data but show muted cards with an unverified label. Their OEE, output, target, and rejects are excluded from dashboard and wallboard totals until an admin marks them Active again. Status changes are saved in PostgreSQL and reach open dashboards live. Existing Commissioning lines are migrated to Out of commission.
 
 ## Docker migration: Raspberry Pi to AI PC

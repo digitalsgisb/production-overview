@@ -52,7 +52,7 @@ function createUserId() {
     return `usr_${crypto.randomBytes(13).toString("hex")}`;
 }
 
-function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessChanged = () => {}, onUserChanged = () => {} }) {
+function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, productionAiEnabled = false, onGuestAccessChanged = () => {}, onUserChanged = () => {} }) {
     const configuredSecret = String(process.env.JWT_SECRET || "").trim();
     const jwtSecret = configuredSecret || crypto.randomBytes(64).toString("hex");
     let schemaPromise;
@@ -290,9 +290,9 @@ function createAuthRouter({ pool, hasDatabaseConfig, localAdmin, onGuestAccessCh
     async function getPublicSettings(request, response) {
         try {
             if (!hasDatabaseConfig) {
-                return response.json({ guestAccessEnabled: false });
+                return response.json({ guestAccessEnabled: false, productionAiEnabled });
             }
-            return response.json({ guestAccessEnabled: await isGuestAccessEnabled() });
+            return response.json({ guestAccessEnabled: await isGuestAccessEnabled(), productionAiEnabled });
         } catch (error) {
             console.error("Load public settings failed:", error.message);
             return response.status(500).json({ message: "Unable to load access settings." });
